@@ -1,0 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables for Light / Dark ─── */
+:root {
+  --bg: #f8f9fb;
+  --bg-subtle: #f1f3f7;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --border: #e4e7ed;
+  --border-subtle: #f0f2f5;
+  --text-primary: #0f111a;
+  --text-secondary: #4b5268;
+  --text-muted: #9ba3b8;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-subtle: #eef2ff;
+  --accent-border: #c7d2fe;
+  --warning: #d97706;
+  --warning-subtle: #fffbeb;
+  --warning-border: #fde68a;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .08), 0 1px 3px rgba(0, 0, 0, .04);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .1), 0 4px 12px rgba(0, 0, 0, .06);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, .12), 0 8px 16px rgba(0, 0, 0, .06);
+  --radius: 10px;
+  --sidebar-w: 260px;
+}
+
+[data-theme="dark"] {
+  --bg: #0d0f14;
+  --bg-subtle: #13161e;
+  --surface: #181b24;
+  --surface-raised: #1e2130;
+  --border: #252a38;
+  --border-subtle: #1e2230;
+  --text-primary: #eceef5;
+  --text-secondary: #8b91a8;
+  --text-muted: #525870;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-subtle: rgba(99, 102, 241, 0.1);
+  --accent-border: rgba(99, 102, 241, 0.25);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.08);
+  --warning-border: rgba(245, 158, 11, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .5);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, .6);
+}
+
+/* ─── Base Reset ─── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  transition: background 0.25s ease, color 0.25s ease;
+  min-height: 100vh;
+}
+
+/* ─── Scrollbars ─── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Utility Classes ─── */
+.surface {
+  background: var(--surface);
+}
+
+.surface-raised {
+  background: var(--surface-raised);
+}
+
+.text-primary-c {
+  color: var(--text-primary);
+}
+
+.text-secondary-c {
+  color: var(--text-secondary);
+}
+
+.text-muted-c {
+  color: var(--text-muted);
+}
+
+.border-c {
+  border-color: var(--border);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.28);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.38);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* ─── Field ─── */
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.field-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 450;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.field-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ─── Badge ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+/* ─── Card ─── */
+.note-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.note-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+}
+
+/* ─── Modal ─── */
+.modal-overlay {
+  background: rgba(10, 10, 20, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 5, 0.75);
+}
+
+/* ─── Sidebar item active ─── */
+.sidebar-item {
+  transition: background 0.15s, color 0.15s;
+  border-radius: 8px;
+}
+
+.sidebar-item:hover {
+  background: var(--bg-subtle);
+}
+
+.sidebar-item.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
