@@ -182,6 +182,8 @@ import QuestionCard from '../components/QuestionCard.vue'
 import ConceptCard  from '../components/ConceptCard.vue'
 import QuestionForm from '../components/QuestionForm.vue'
 
+defineEmits(['refresh-topics'])
+
 const route = useRoute()
 const topicId = computed(() => route.params.id)
 

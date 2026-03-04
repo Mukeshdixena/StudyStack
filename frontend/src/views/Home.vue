@@ -44,6 +44,8 @@ import { RouterLink } from 'vue-router'
 import { ChevronRight, FileText, Lightbulb, Zap, BookOpen } from 'lucide-vue-next'
 import axios from 'axios'
 
+defineEmits(['refresh-topics'])
+
 const topics = ref([])
 const load = async () => {
   try { topics.value = (await axios.get('/api/topics')).data }
