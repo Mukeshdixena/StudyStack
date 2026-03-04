@@ -87,6 +87,15 @@
                 <label class="field-label">Key Insights / Important Notes</label>
                 <textarea v-model="newTopic.keyInsights" class="field-input" rows="3" style="resize:vertical" placeholder="Things you must remember about this topic..."></textarea>
               </div>
+              <div v-if="!newTopic.isFolder">
+                <label class="field-label">Study Material (PDF)</label>
+                <div class="file-upload-box" @click="$refs.pdfInput.click()">
+                  <input type="file" ref="pdfInput" class="hidden" accept=".pdf" @change="(e) => pdfToUpload = e.target.files[0]" />
+                  <File v-if="pdfToUpload" :size="16" />
+                  <Upload v-else :size="16" />
+                  <span>{{ pdfToUpload ? pdfToUpload.name : 'Select PDF (Optional)' }}</span>
+                </div>
+              </div>
               <div class="flex justify-end gap-3 pt-2 border-t" style="border-color:var(--border)">
                 <button type="button" class="btn-ghost" @click="showAddTopic = false">Cancel</button>
                 <button type="submit" class="btn-primary" :disabled="creating">
@@ -114,7 +123,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle } from 'lucide-vue-next'
+import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle, File, Upload } from 'lucide-vue-next'
 import TopicTree from './components/TopicTree.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
 import axios from 'axios'
@@ -130,6 +139,7 @@ const deleting = ref(false)
 const revisionCount = ref(0)
 
 const itemToDelete = ref(null)
+const pdfToUpload = ref(null)
 const newTopic = reactive({ name: '', description: '', keyInsights: '', isFolder: false, parentId: null })
 
 const toggleTheme = () => {
@@ -151,11 +161,25 @@ const loadTopics = async () => {
 const createTopic = async () => {
   creating.value = true
   try {
-    await axios.post('/api/topics', newTopic)
+    const res = await axios.post('/api/topics', newTopic)
+    const topicId = res.data._id
+
+    // If PDF selected, upload it
+    if (pdfToUpload.value && topicId) {
+      const formData = new FormData()
+      formData.append('file', pdfToUpload.value)
+      await axios.post(`/api/topics/${topicId}/upload-pdf`, formData)
+    }
+
     Object.assign(newTopic, { name: '', description: '', keyInsights: '', isFolder: false, parentId: null })
+    pdfToUpload.value = null
     showAddTopic.value = false
     await loadTopics()
-  } finally { creating.value = false }
+  } catch (err) {
+    console.error('Creation failed', err)
+  } finally {
+    creating.value = false
+  }
 }
 
 const openAddModal = (isFolder = false, parentId = null) => {
@@ -268,4 +292,26 @@ onMounted(loadTopics)
 .justify-center { justify-content:center; }
 .items-center { align-items:center; }
 .mb-2 { margin-bottom:8px; }
+
+.file-upload-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.file-upload-box:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.hidden { display: none; }
 </style>

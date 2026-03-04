@@ -218,6 +218,15 @@
     @confirm="doDelete"
     @cancel="showDeleteConfirm = false"
   />
+
+  <ConfirmModal 
+    :show="showPdfConfirm"
+    :title="'the PDF of ' + topic?.name"
+    :isFolder="false"
+    :loading="deleting"
+    @confirm="doRemovePdf"
+    @cancel="showPdfConfirm = false"
+  />
 </template>
 
 <script setup>
@@ -255,6 +264,7 @@ const solvedOnly   = ref(false)
 const showAddQuestion = ref(false)
 const editingTopic    = ref(false)
 const showDeleteConfirm = ref(false)
+const showPdfConfirm = ref(false)
 const deleting        = ref(false)
 const uploadingPdf    = ref(false)
 const isPdfFullscreen = ref(false)
@@ -364,13 +374,20 @@ const handleFileUpload = async (e) => {
   }
 }
 
-const removePdf = async () => {
-  if (!confirm('Remove this PDF?')) return
+const removePdf = () => {
+  showPdfConfirm.value = true
+}
+
+const doRemovePdf = async () => {
+  deleting.value = true
   try {
     await axios.put(`/api/topics/${topicId.value}`, { pdfUrl: null, pdfKey: null })
     await loadData()
   } catch (err) {
     console.error('Remove failed', err)
+  } finally {
+    deleting.value = false
+    showPdfConfirm.value = false
   }
 }
 
