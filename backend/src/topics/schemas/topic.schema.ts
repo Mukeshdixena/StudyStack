@@ -17,6 +17,15 @@ export class Topic extends Document {
 
     @Prop({ default: 0 })
     totalConcepts: number;
+
+    @Prop({ default: false })
+    isFolder: boolean;
+
+    @Prop({ default: null })
+    parentId: string; // ID of the parent folder
+
+    @Prop({ default: 0 })
+    order: number; // For manual sorting later
 }
 
 export const TopicSchema = SchemaFactory.createForClass(Topic);

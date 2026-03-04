@@ -16,37 +16,38 @@
         <RouterLink to="/" class="sidebar-item nav-item" :class="{ active: route.path === '/' }">
           <LayoutGrid :size="15" /> All Topics
         </RouterLink>
-        <RouterLink to="/revision" class="sidebar-item nav-item" :class="{ active: route.path === '/revision' }">
-          <AlertCircle :size="15" /> Needs Revision
-          <span v-if="revisionCount" class="rev-badge">{{ revisionCount }}</span>
-        </RouterLink>
       </nav>
 
       <!-- Topics list -->
       <nav class="sidebar-nav flex-1 overflow-y-auto">
         <div class="flex items-center justify-between mb-2">
-          <span class="nav-section-label">Topics</span>
-          <button class="add-topic-btn" @click="showAddTopic = true" title="New Topic"><Plus :size="13" /></button>
+          <span class="nav-section-label">Structure</span>
+          <div class="flex gap-1">
+            <button class="add-topic-btn" @click="openAddModal(true)" title="New Folder"><FolderPlus :size="13" /></button>
+            <button class="add-topic-btn" @click="openAddModal(false)" title="New Topic"><Plus :size="13" /></button>
+          </div>
         </div>
         <div v-if="!topics.length" class="nav-empty">No topics yet</div>
-        <RouterLink
-          v-for="t in topics"
-          :key="t._id"
-          :to="`/topic/${t._id}`"
-          class="sidebar-item nav-item topic-item"
-          :class="{ active: route.params.id === t._id }"
-        >
-          <span class="topic-dot" :class="{ 'dot-active': route.params.id === t._id }"></span>
-          <span class="truncate flex-1">{{ t.name }}</span>
-          <span class="topic-count">{{ t.totalQuestions }}</span>
-        </RouterLink>
+        <TopicTree 
+          v-else 
+          :topics="topics" 
+          :active-id="route.params.id" 
+          @delete="deleteItem"
+          @move="moveItem"
+          @create="(e) => openAddModal(e.isFolder, e.parentId)"
+        />
       </nav>
 
       <!-- Footer -->
       <div class="sidebar-footer">
-        <button class="btn-primary w-full justify-center" @click="showAddTopic = true">
-          <Plus :size="15" /> New Topic
-        </button>
+        <div class="flex gap-2">
+          <button class="btn-primary flex-1 justify-center" @click="openAddModal(false)">
+            <Plus :size="15" /> Topic
+          </button>
+          <button class="btn-ghost" style="border:1px solid var(--border)" @click="openAddModal(true)" title="New Folder">
+            <FolderPlus :size="15" />
+          </button>
+        </div>
         <button class="theme-toggle" @click="toggleTheme">
           <Sun v-if="theme === 'dark'" :size="14" />
           <Moon v-else :size="14" />
@@ -67,15 +68,18 @@
           <div class="modal-overlay" @click="showAddTopic = false"></div>
           <div class="modal-box" style="max-width:480px">
             <div class="modal-header">
-              <div><h2 class="modal-title">New Topic</h2><p class="modal-sub">Create a new chapter or topic</p></div>
+              <div>
+                <h2 class="modal-title">{{ newTopic.isFolder ? 'New Folder' : 'New Topic' }}</h2>
+                <p class="modal-sub">{{ newTopic.isFolder ? 'Create a category to group topics' : 'Create a new chapter or topic' }}</p>
+              </div>
               <button class="btn-ghost icon-btn" @click="showAddTopic = false"><X :size="18" /></button>
             </div>
             <form @submit.prevent="createTopic" class="space-y-5">
               <div>
-                <label class="field-label">Topic Name <span style="color:var(--danger)">*</span></label>
-                <input v-model="newTopic.name" class="field-input" placeholder="Arrays: Sliding Window & Contribution" required />
+                <label class="field-label">{{ newTopic.isFolder ? 'Folder Name' : 'Topic Name' }} <span style="color:var(--danger)">*</span></label>
+                <input v-model="newTopic.name" class="field-input" :placeholder="newTopic.isFolder ? 'e.g. Dynamic Programming' : 'e.g. Sliding Window'" required />
               </div>
-              <div>
+              <div v-if="!newTopic.isFolder">
                 <label class="field-label">Description</label>
                 <input v-model="newTopic.description" class="field-input" placeholder="Short description..." />
               </div>
@@ -87,7 +91,7 @@
                 <button type="button" class="btn-ghost" @click="showAddTopic = false">Cancel</button>
                 <button type="submit" class="btn-primary" :disabled="creating">
                   <span v-if="creating" class="spinner"></span>
-                  {{ creating ? 'Creating...' : 'Create Topic' }}
+                  {{ creating ? 'Creating...' : (newTopic.isFolder ? 'Create Folder' : 'Create Topic') }}
                 </button>
               </div>
             </form>
@@ -100,8 +104,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRoute, RouterLink, RouterView } from 'vue-router'
-import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon } from 'lucide-vue-next'
+import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
+import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus } from 'lucide-vue-next'
+import TopicTree from './components/TopicTree.vue'
 import axios from 'axios'
 
 const route = useRoute()
@@ -111,7 +116,7 @@ const showAddTopic = ref(false)
 const creating = ref(false)
 const revisionCount = ref(0)
 
-const newTopic = reactive({ name: '', description: '', keyInsights: '' })
+const newTopic = reactive({ name: '', description: '', keyInsights: '', isFolder: false, parentId: null })
 
 const toggleTheme = () => {
   theme.value = theme.value === 'dark' ? 'light' : 'dark'
@@ -133,10 +138,37 @@ const createTopic = async () => {
   creating.value = true
   try {
     await axios.post('/api/topics', newTopic)
-    Object.assign(newTopic, { name: '', description: '', keyInsights: '' })
+    Object.assign(newTopic, { name: '', description: '', keyInsights: '', isFolder: false, parentId: null })
     showAddTopic.value = false
     await loadTopics()
   } finally { creating.value = false }
+}
+
+const openAddModal = (isFolder = false, parentId = null) => {
+  newTopic.isFolder = isFolder
+  newTopic.parentId = parentId
+  newTopic.name = ''
+  newTopic.description = ''
+  newTopic.keyInsights = ''
+  showAddTopic.value = true
+}
+
+const deleteItem = async (id) => {
+  if (!confirm('Are you sure you want to delete this? All contents will be lost if it is a folder.')) return
+  try {
+    await axios.delete(`/api/topics/${id}`)
+    // If it's a folder, we might need to handle children on backend or frontend. 
+    // For now simple single delete.
+    await loadTopics()
+    if (route.params.id === id) router.push('/')
+  } catch (e) { console.error(e) }
+}
+
+const moveItem = async ({ id, parentId }) => {
+  try {
+    await axios.put(`/api/topics/${id}`, { parentId })
+    await loadTopics()
+  } catch (e) { console.error(e) }
 }
 
 onMounted(loadTopics)

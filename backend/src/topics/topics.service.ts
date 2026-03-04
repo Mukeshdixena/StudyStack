@@ -28,8 +28,17 @@ export class TopicsService {
     }
 
     async remove(id: string): Promise<any> {
-        const t = await this.topicModel.findByIdAndDelete(id).exec();
-        if (!t) throw new NotFoundException('Topic not found');
-        return t;
+        const topic = await this.topicModel.findById(id).exec();
+        if (!topic) throw new NotFoundException('Topic not found');
+
+        // If it's a folder, delete all children recursively
+        if (topic.isFolder) {
+            const children = await this.topicModel.find({ parentId: id }).exec();
+            for (const child of children) {
+                await this.remove(child._id.toString());
+            }
+        }
+
+        return this.topicModel.findByIdAndDelete(id).exec();
     }
 }

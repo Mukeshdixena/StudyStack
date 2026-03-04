@@ -7,13 +7,13 @@
       </div>
     </header>
 
-    <div v-if="topics.length" class="topics-grid">
-      <RouterLink
-        v-for="t in topics"
-        :key="t._id"
-        :to="`/topic/${t._id}`"
-        class="topic-card"
-      >
+    <div v-if="topics.some(t => !t.isFolder)" class="topics-grid">
+      <template v-for="t in topics" :key="t._id">
+        <RouterLink
+          v-if="!t.isFolder"
+          :to="`/topic/${t._id}`"
+          class="topic-card"
+        >
         <div class="tc-top">
           <span class="tc-name">{{ t.name }}</span>
           <ChevronRight :size="16" class="tc-arrow" />
@@ -26,7 +26,8 @@
         <div v-if="t.keyInsights" class="tc-insight">
           <Zap :size="11" /> {{ t.keyInsights.slice(0, 100) }}{{ t.keyInsights.length > 100 ? '...' : '' }}
         </div>
-      </RouterLink>
+        </RouterLink>
+      </template>
     </div>
 
     <div v-else class="empty-state">
