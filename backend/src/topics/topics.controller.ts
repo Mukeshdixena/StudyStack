@@ -1,9 +1,14 @@
-import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TopicsService } from './topics.service';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('topics')
 export class TopicsController {
-    constructor(private readonly topicsService: TopicsService) { }
+    constructor(
+        private readonly topicsService: TopicsService,
+        private readonly storageService: StorageService
+    ) { }
 
     @Post()
     create(@Body() data: any) { return this.topicsService.create(data); }
@@ -19,4 +24,14 @@ export class TopicsController {
 
     @Delete(':id')
     remove(@Param('id') id: string) { return this.topicsService.remove(id); }
+
+    @Post(':id/upload-pdf')
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadPdf(
+        @Param('id') id: string,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        const { url, key } = await this.storageService.uploadFile(file);
+        return this.topicsService.updatePdf(id, url, key);
+    }
 }

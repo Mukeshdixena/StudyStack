@@ -8,6 +8,7 @@ import { QuestionsModule } from './questions/questions.module';
 import { ConceptsModule } from './concepts/concepts.module';
 import { AiModule } from './ai/ai.module';
 import { NotesModule } from './notes/notes.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { NotesModule } from './notes/notes.module';
     ConceptsModule,
     AiModule,
     NotesModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -26,6 +26,12 @@ export class Topic extends Document {
 
     @Prop({ default: 0 })
     order: number; // For manual sorting later
+
+    @Prop({ trim: true })
+    pdfUrl: string; // URL of the uploaded PDF
+
+    @Prop({ trim: true })
+    pdfKey: string; // S3/Spaces key for deletion
 }
 
 export const TopicSchema = SchemaFactory.createForClass(Topic);

@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Topic } from './schemas/topic.schema';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class TopicsService {
-    constructor(@InjectModel(Topic.name) private topicModel: Model<Topic>) { }
+    constructor(
+        @InjectModel(Topic.name) private topicModel: Model<Topic>,
+        private readonly storageService: StorageService
+    ) { }
 
     async create(data: any): Promise<Topic> {
         return new this.topicModel(data).save();
@@ -27,6 +31,21 @@ export class TopicsService {
         return t;
     }
 
+    async updatePdf(id: string, pdfUrl: string, pdfKey: string): Promise<Topic> {
+        const topic = await this.findOne(id);
+
+        // Delete old PDF if exists
+        if (topic.pdfKey) {
+            try {
+                await this.storageService.deleteFile(topic.pdfKey);
+            } catch (e) {
+                console.error('Failed to delete old PDF:', e);
+            }
+        }
+
+        return this.update(id, { pdfUrl, pdfKey });
+    }
+
     async remove(id: string): Promise<any> {
         const topic = await this.topicModel.findById(id).exec();
         if (!topic) throw new NotFoundException('Topic not found');
@@ -36,6 +55,15 @@ export class TopicsService {
             const children = await this.topicModel.find({ parentId: id }).exec();
             for (const child of children) {
                 await this.remove(child._id.toString());
+            }
+        }
+
+        // Delete PDF if exists
+        if (topic.pdfKey) {
+            try {
+                await this.storageService.deleteFile(topic.pdfKey);
+            } catch (e) {
+                console.error('Failed to delete PDF from storage:', e);
             }
         }
 
