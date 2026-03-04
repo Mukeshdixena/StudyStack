@@ -37,15 +37,31 @@
       <!-- Actions -->
       <div class="actions">
         <template v-if="item.isFolder">
-          <button class="action-btn" @click.stop="$emit('create', { isFolder: true, parentId: item.id })" title="New Folder">
-            <FolderPlus :size="12" />
+          <button 
+            class="action-btn" 
+            @click.stop.prevent="handleCreate(true)" 
+            title="New Folder"
+            draggable="false"
+          >
+            <FolderPlus :size="13" />
           </button>
-          <button class="action-btn" @click.stop="$emit('create', { isFolder: false, parentId: item.id })" title="New Topic">
-            <Plus :size="12" />
+          <button 
+            class="action-btn" 
+            @click.stop.prevent="handleCreate(false)" 
+            title="New Topic"
+            draggable="false"
+          >
+            <Plus :size="13" />
           </button>
         </template>
-        <button class="action-btn delete-btn" @click.stop="$emit('delete', item.id)" title="Delete">
-          <Trash2 :size="12" />
+        <button 
+          class="action-btn delete-btn" 
+          @click.stop.prevent="handleDelete" 
+          @mousedown.stop
+          title="Delete"
+          draggable="false"
+        >
+          <Trash2 :size="13" />
         </button>
       </div>
     </div>
@@ -58,10 +74,10 @@
         :item="child" 
         :level="level + 1"
         :active-id="activeId"
-        @select="$emit('select', $event)"
-        @delete="$emit('delete', $event)"
-        @move="$emit('move', $event)"
-        @create="$emit('create', $event)"
+        @select="handleChildSelect"
+        @delete="handleChildDelete"
+        @move="handleChildMove"
+        @create="handleChildCreate"
       />
       <div v-if="item.children.length === 0" class="empty-folder" :style="{ paddingLeft: `calc(32px + ${level * 14}px)` }">
         Empty folder
@@ -89,7 +105,25 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['select', 'delete', 'move']);
+const emit = defineEmits(['select', 'delete', 'move', 'create']);
+
+const handleCreate = (isFolder) => {
+  console.log('TreeItem: handleCreate', { isFolder, id: props.item.id });
+  emit('create', { isFolder, parentId: props.item.id });
+};
+
+const handleDelete = () => {
+  console.log('TreeItem: handleDelete', props.item.id);
+  emit('delete', props.item.id);
+};
+
+const handleChildSelect = (item) => emit('select', item);
+const handleChildDelete = (id) => {
+  console.log('TreeItem: bubbling child delete', id);
+  emit('delete', id);
+};
+const handleChildMove = (data) => emit('move', data);
+const handleChildCreate = (data) => emit('create', data);
 
 const isOpen = ref(true);
 const isDragOver = ref(false);
@@ -103,6 +137,10 @@ const toggle = () => {
 };
 
 const onDragStart = (e) => {
+  if (e.target.closest('.actions') || e.target.closest('button')) {
+    e.preventDefault();
+    return;
+  }
   e.dataTransfer.setData('itemId', props.item.id);
   e.dataTransfer.effectAllowed = 'move';
 };
@@ -227,23 +265,26 @@ const onDrop = (e) => {
 .action-btn {
   background: none;
   border: none;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 5px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.1s;
+  pointer-events: auto;
 }
 
 .action-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.08);
   color: var(--text-primary);
 }
 
 .delete-btn:hover {
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
 }
 
 [data-theme="dark"] .action-btn:hover {

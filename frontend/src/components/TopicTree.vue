@@ -6,9 +6,9 @@
       :item="item" 
       :active-id="activeId"
       @select="onSelect"
-      @delete="$emit('delete', $event)"
-      @move="$emit('move', $event)"
-      @create="$emit('create', $event)"
+      @delete="handleDelete"
+      @move="handleMove"
+      @create="handleCreate"
     />
     <div v-if="!treeData.length" class="tree-empty">
       Drag items here or create a new folder.
@@ -77,6 +77,19 @@ const onDropRoot = (e) => {
   if (id) {
     emit('move', { id, parentId: null });
   }
+};
+
+const handleDelete = (id) => {
+  console.log('TopicTree: bubbling delete', id);
+  emit('delete', id);
+};
+
+const handleMove = (data) => {
+  emit('move', data);
+};
+
+const handleCreate = (data) => {
+  emit('create', data);
 };
 </script>
 

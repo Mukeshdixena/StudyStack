@@ -14,6 +14,7 @@
       </div>
       <div class="topic-header-actions">
         <button class="btn-ghost" @click="editingTopic = true"><Edit3 :size="14" /> Edit Topic</button>
+        <button class="btn-ghost delete-item-btn" @click="confirmDelete"><Trash2 :size="14" /> Delete</button>
       </div>
     </header>
 
@@ -168,19 +169,30 @@
       </div>
     </Transition>
   </Teleport>
+
+  <ConfirmModal 
+    :show="showDeleteConfirm"
+    :title="topic?.name"
+    :isFolder="true"
+    :loading="deleting"
+    @confirm="doDelete"
+    @cancel="showDeleteConfirm = false"
+  />
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import {
-  ChevronLeft, FileText, Lightbulb, Zap, Search, Plus, X, Edit3,
+  ChevronLeft, FileText, Lightbulb, Zap, Search, Plus, X, Edit3, Trash2,
   RotateCcw, CheckCircle2
 } from 'lucide-vue-next'
 import axios from 'axios'
 import QuestionCard from '../components/QuestionCard.vue'
 import ConceptCard  from '../components/ConceptCard.vue'
 import QuestionForm from '../components/QuestionForm.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useRouter } from 'vue-router'
 
 defineEmits(['refresh-topics'])
 
@@ -202,6 +214,9 @@ const solvedOnly   = ref(false)
 
 const showAddQuestion = ref(false)
 const editingTopic    = ref(false)
+const showDeleteConfirm = ref(false)
+const deleting        = ref(false)
+const router          = useRouter()
 const editForm = reactive({ name: '', description: '', keyInsights: '' })
 
 const revisionCount = computed(() => questions.value.filter(q => q.needsRevision).length)
@@ -257,6 +272,25 @@ const saveTopic = async () => {
   await loadData()
 }
 
+const confirmDelete = () => {
+  showDeleteConfirm.value = true
+}
+
+const doDelete = async () => {
+  deleting.value = true
+  try {
+    await axios.delete(`/api/topics/${topicId.value}`)
+    emit('refresh-topics')
+    router.push('/')
+  } catch (e) {
+    console.error('Failed to delete topic:', e)
+    alert('Failed to delete topic.')
+  } finally {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
+}
+
 watch(topicId, loadData, { immediate: true })
 </script>
 
@@ -273,6 +307,9 @@ watch(topicId, loadData, { immediate: true })
 .topic-stats { display:flex; gap:8px; flex-wrap:wrap; }
 .stat-pill { display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; color:var(--text-muted); background:var(--bg-subtle); border:1px solid var(--border); border-radius:99px; padding:3px 10px; }
 .stat-pill.warn { color:var(--warning); background:var(--warning-subtle); border-color:var(--warning-border); }
+
+.delete-item-btn { color: var(--text-muted); }
+.delete-item-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 
 /* Key Insights */
 .key-insights-bar { background:var(--warning-subtle); border:1px solid var(--warning-border); border-radius:10px; padding:16px 20px; margin-bottom:32px; display:flex; gap:12px; align-items:flex-start; }

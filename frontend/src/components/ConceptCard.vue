@@ -65,11 +65,21 @@
       </div>
     </div>
   </div>
+
+  <ConfirmModal 
+    :show="showDeleteConfirm"
+    :title="localConcept.title"
+    :isFolder="false"
+    :loading="deleting"
+    @confirm="doDelete"
+    @cancel="showDeleteConfirm = false"
+  />
 </template>
 
 <script setup>
 import { ref, reactive, nextTick, onMounted } from 'vue'
 import { Pencil, Trash2, Zap, Check } from 'lucide-vue-next'
+import ConfirmModal from './ConfirmModal.vue'
 import axios from 'axios'
 
 const props = defineProps(['concept', 'isNew'])
@@ -77,6 +87,8 @@ const emit = defineEmits(['deleted', 'updated', 'cancel-new'])
 
 const isEditing = ref(props.isNew || false)
 const saving = ref(false)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
 const localConcept = ref({ ...props.concept })
 const editForm = reactive({
   title: props.concept.title || '',
@@ -146,10 +158,22 @@ const save = async () => {
   }
 }
 
-const deleteC = async () => {
-  if (!confirm('Discard this note?')) return
-  await axios.delete(`/api/concepts/${localConcept.value._id}`)
-  emit('deleted')
+const deleteC = () => {
+  showDeleteConfirm.value = true
+}
+
+const doDelete = async () => {
+  deleting.value = true
+  try {
+    await axios.delete(`/api/concepts/${localConcept.value._id}`)
+    emit('deleted')
+  } catch (e) {
+    console.error('Delete failed:', e)
+    alert('Failed to delete concept.')
+  } finally {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
 }
 
 onMounted(() => {

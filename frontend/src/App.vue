@@ -99,23 +99,37 @@
         </div>
       </Transition>
     </Teleport>
+
+    <ConfirmModal 
+      :show="showDeleteConfirm"
+      :title="itemToDelete?.name"
+      :isFolder="itemToDelete?.isFolder"
+      :loading="deleting"
+      @confirm="confirmDelete"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus } from 'lucide-vue-next'
+import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle } from 'lucide-vue-next'
 import TopicTree from './components/TopicTree.vue'
+import ConfirmModal from './components/ConfirmModal.vue'
 import axios from 'axios'
 
 const route = useRoute()
+const router = useRouter()
 const theme = ref(localStorage.getItem('ss-theme') || 'light')
 const topics = ref([])
 const showAddTopic = ref(false)
+const showDeleteConfirm = ref(false)
 const creating = ref(false)
+const deleting = ref(false)
 const revisionCount = ref(0)
 
+const itemToDelete = ref(null)
 const newTopic = reactive({ name: '', description: '', keyInsights: '', isFolder: false, parentId: null })
 
 const toggleTheme = () => {
@@ -153,15 +167,35 @@ const openAddModal = (isFolder = false, parentId = null) => {
   showAddTopic.value = true
 }
 
-const deleteItem = async (id) => {
-  if (!confirm('Are you sure you want to delete this? All contents will be lost if it is a folder.')) return
+const deleteItem = (id) => {
+  console.log('App.vue: deleteItem triggered with id:', id);
+  if (!id) return;
+  
+  const item = topics.value.find(t => t._id === id);
+  itemToDelete.value = { 
+    id, 
+    name: item?.name || 'this item', 
+    isFolder: item?.isFolder 
+  };
+  showDeleteConfirm.value = true;
+}
+
+const confirmDelete = async () => {
+  if (!itemToDelete.value) return;
+  
+  deleting.value = true;
   try {
-    await axios.delete(`/api/topics/${id}`)
-    // If it's a folder, we might need to handle children on backend or frontend. 
-    // For now simple single delete.
+    console.log('App.vue: Deleting item:', itemToDelete.value.id);
+    await axios.delete(`/api/topics/${itemToDelete.value.id}`)
     await loadTopics()
-    if (route.params.id === id) router.push('/')
-  } catch (e) { console.error(e) }
+    if (route.params.id === itemToDelete.value.id) router.push('/')
+    showDeleteConfirm.value = false;
+  } catch (e) { 
+    console.error('Delete failed:', e);
+    alert('Failed to delete item. Please check console for details.');
+  } finally {
+    deleting.value = false;
+  }
 }
 
 const moveItem = async ({ id, parentId }) => {

@@ -73,6 +73,15 @@
       </div>
     </Transition>
   </Teleport>
+
+  <ConfirmModal 
+    :show="showDeleteConfirm"
+    :title="question.title"
+    :isFolder="false"
+    :loading="deleting"
+    @confirm="doDelete"
+    @cancel="showDeleteConfirm = false"
+  />
 </template>
 
 <script setup>
@@ -80,10 +89,13 @@ import { ref } from 'vue'
 import { CheckCircle2, RotateCcw, Pencil, Trash2, X } from 'lucide-vue-next'
 import axios from 'axios'
 import QuestionForm from './QuestionForm.vue'
+import ConfirmModal from './ConfirmModal.vue'
 
 const props = defineProps(['question'])
 const emit = defineEmits(['deleted','updated'])
 const editing = ref(false)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
 const activeApproach = ref(0)
 
 const toggleRevision = async () => {
@@ -94,10 +106,22 @@ const toggleSolved = async () => {
   await axios.put(`/api/questions/${props.question._id}`, { isSolved: !props.question.isSolved })
   emit('updated')
 }
-const deleteQ = async () => {
-  if (!confirm('Delete this question?')) return
-  await axios.delete(`/api/questions/${props.question._id}`)
-  emit('deleted')
+const deleteQ = () => {
+  showDeleteConfirm.value = true
+}
+
+const doDelete = async () => {
+  deleting.value = true
+  try {
+    await axios.delete(`/api/questions/${props.question._id}`)
+    emit('deleted')
+  } catch (e) {
+    console.error('Delete failed:', e)
+    alert('Failed to delete question.')
+  } finally {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
 }
 </script>
 
