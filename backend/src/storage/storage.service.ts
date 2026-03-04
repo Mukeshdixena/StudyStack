@@ -9,14 +9,14 @@ export class StorageService {
 
     constructor(private configService: ConfigService) {
         this.s3Client = new S3Client({
-            endpoint: `https://${this.configService.get('DO_SPACES_ENDPOINT')}`,
-            region: this.configService.get('DO_SPACES_REGION'),
+            endpoint: `https://${this.configService.get<string>('DO_SPACES_ENDPOINT')}`,
+            region: this.configService.get<string>('DO_SPACES_REGION'),
             credentials: {
-                accessKeyId: this.configService.get('DO_SPACES_KEY'),
-                secretAccessKey: this.configService.get('DO_SPACES_SECRET'),
+                accessKeyId: this.configService.get<string>('DO_SPACES_KEY')!,
+                secretAccessKey: this.configService.get<string>('DO_SPACES_SECRET')!,
             },
         });
-        this.bucket = this.configService.get('DO_SPACES_BUCKET');
+        this.bucket = this.configService.get<string>('DO_SPACES_BUCKET')!;
     }
 
     async uploadFile(file: Express.Multer.File, folder: string = 'pdfs'): Promise<{ url: string; key: string }> {
@@ -33,7 +33,7 @@ export class StorageService {
         );
 
         // DigitalOcean Spaces URL format
-        const url = `https://${this.bucket}.${this.configService.get('DO_SPACES_ENDPOINT')}/${key}`;
+        const url = `https://${this.bucket}.${this.configService.get<string>('DO_SPACES_ENDPOINT')}/${key}`;
 
         return { url, key };
     }
