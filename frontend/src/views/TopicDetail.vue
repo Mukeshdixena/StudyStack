@@ -234,7 +234,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import {
   ChevronLeft, FileText, Lightbulb, Zap, Search, Plus, X, Edit3, Trash2,
-  RotateCcw, CheckCircle2, File, Maximize, Upload, ExternalLink
+  RotateCcw, CheckCircle2, File, Maximize, Upload, ExternalLink, StickyNote
 } from 'lucide-vue-next'
 import axios from 'axios'
 import QuestionCard from '../components/QuestionCard.vue'
@@ -274,9 +274,9 @@ const editForm = reactive({ name: '', description: '', keyInsights: '' })
 const revisionCount = computed(() => questions.value.filter(q => q.needsRevision).length)
 
 const tabs = computed(() => [
-  { id: 'questions', label: 'Questions', icon: FileText, count: questions.value.length },
-  { id: 'concepts',  label: 'Concepts',  icon: Lightbulb, count: concepts.value.length },
-  { id: 'resources', label: 'PDF',       icon: File,      count: topic.value?.pdfUrl ? 1 : 0 },
+  { id: 'questions', label: 'Questions', icon: FileText,   count: questions.value.length },
+  { id: 'concepts',  label: 'Notes',     icon: StickyNote, count: concepts.value.length },
+  { id: 'resources', label: 'PDF',       icon: File,       count: topic.value?.pdfUrl ? 1 : 0 },
 ])
 
 const pdfViewUrl = computed(() => {

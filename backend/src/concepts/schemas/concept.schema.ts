@@ -6,13 +6,13 @@ export class Concept extends Document {
     @Prop({ type: Types.ObjectId, ref: 'Topic', required: true })
     topicId: Types.ObjectId;
 
-    @Prop({ required: true, trim: true })
+    @Prop({ default: '', trim: true })
     title: string;
 
-    @Prop({ required: true })
+    @Prop({ default: '' })
     explanation: string;
 
-    @Prop()
+    @Prop({ default: '' })
     keyPoints: string;  // The forgettable / crucial bits
 }
 

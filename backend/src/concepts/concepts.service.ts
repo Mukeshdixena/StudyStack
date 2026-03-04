@@ -15,6 +15,10 @@ export class ConceptsService {
         return this.conceptModel.find({ topicId }).sort({ createdAt: -1 }).exec();
     }
 
+    async findAll(): Promise<Concept[]> {
+        return this.conceptModel.find().populate('topicId', 'name').sort({ createdAt: -1 }).exec();
+    }
+
     async findOne(id: string): Promise<Concept> {
         const c = await this.conceptModel.findById(id).exec();
         if (!c) throw new NotFoundException('Concept not found');

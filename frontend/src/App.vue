@@ -16,6 +16,9 @@
         <RouterLink to="/" class="sidebar-item nav-item" :class="{ active: route.path === '/' }">
           <LayoutGrid :size="15" /> All Topics
         </RouterLink>
+        <button class="sidebar-item nav-item" @click="showScratchpad = true">
+          <StickyNote :size="15" /> Scratchpad
+        </button>
       </nav>
 
       <!-- Topics list -->
@@ -117,15 +120,18 @@
       @confirm="confirmDelete"
       @cancel="showDeleteConfirm = false"
     />
+
+    <Scratchpad :show="showScratchpad" @close="showScratchpad = false" />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle, File, Upload } from 'lucide-vue-next'
+import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle, File, Upload, StickyNote } from 'lucide-vue-next'
 import TopicTree from './components/TopicTree.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
+import Scratchpad from './components/Scratchpad.vue'
 import axios from 'axios'
 
 const route = useRoute()
@@ -134,6 +140,7 @@ const theme = ref(localStorage.getItem('ss-theme') || 'light')
 const topics = ref([])
 const showAddTopic = ref(false)
 const showDeleteConfirm = ref(false)
+const showScratchpad = ref(false)
 const creating = ref(false)
 const deleting = ref(false)
 const revisionCount = ref(0)

@@ -8,6 +8,9 @@ export class ConceptsController {
     @Post()
     create(@Body() data: any) { return this.conceptsService.create(data); }
 
+    @Get()
+    findAll() { return this.conceptsService.findAll(); }
+
     @Get('by-topic/:topicId')
     findByTopic(@Param('topicId') topicId: string) { return this.conceptsService.findByTopic(topicId); }
 

@@ -1,56 +1,23 @@
 <template>
   <div class="ccard" :class="{ 'is-editing': isEditing }">
     <div class="ccard-inner">
-      <!-- Title Section -->
-      <div class="ccard-header">
-        <div v-if="!isEditing" class="title-view group">
-          <h3 class="c-title" @click="startEditing">{{ localConcept.title || 'Untitled Concept' }}</h3>
-          <div class="ccard-actions">
-            <button class="icon-action" @click="startEditing" title="Edit"><Pencil :size="14" /></button>
-            <button class="icon-action danger" @click="deleteC" title="Delete"><Trash2 :size="14" /></button>
-          </div>
-        </div>
-        <input 
-          v-else 
-          ref="titleInput"
-          v-model="editForm.title" 
-          class="inline-input title-input" 
-          placeholder="Concept Title..."
-          @keydown.enter="save"
-        />
+      <div v-if="!isEditing" class="ccard-actions-float">
+        <button class="icon-action" @click="startEditing" title="Edit"><Pencil :size="14" /></button>
+        <button class="icon-action danger" @click="deleteC" title="Delete"><Trash2 :size="14" /></button>
       </div>
 
       <!-- Explanation Section -->
       <div class="ccard-body">
-        <div v-if="!isEditing" class="explanation-view" @click="startEditing">
-          {{ localConcept.explanation || 'Click to add explanation...' }}
-        </div>
         <textarea 
-          v-else 
+          v-if="isEditing" 
           v-model="editForm.explanation" 
           class="inline-textarea explanation-input" 
-          placeholder="Write your thoughts here... (supports notebook feel)"
+          placeholder="Write your thoughts here... (Markdown supported)"
           rows="1"
           @input="autoResize"
           ref="explanationInput"
         ></textarea>
-      </div>
-
-      <!-- Key Points Section -->
-      <div class="ccard-footer-note" :class="{ 'has-content': localConcept.keyPoints || isEditing }">
-        <div v-if="!isEditing && localConcept.keyPoints" class="kp-view" @click="startEditing">
-          <div class="kp-label"><Zap :size="12" /> Key Insight</div>
-          <p class="kp-text">{{ localConcept.keyPoints }}</p>
-        </div>
-        <div v-else-if="isEditing" class="kp-edit">
-          <div class="kp-label"><Zap :size="12" /> Important Note</div>
-          <textarea 
-            v-model="editForm.keyPoints" 
-            class="inline-textarea kp-input" 
-            placeholder="A quick summary or trick to remember..."
-            rows="1"
-            @input="autoResize"
-          ></textarea>
+        <div v-else class="explanation-markdown" @click="startEditing" v-html="renderMarkdown(localConcept.explanation || 'Click to add explanation...')">
         </div>
       </div>
 
@@ -81,6 +48,19 @@ import { ref, reactive, nextTick, onMounted } from 'vue'
 import { Pencil, Trash2, Zap, Check } from 'lucide-vue-next'
 import ConfirmModal from './ConfirmModal.vue'
 import axios from 'axios'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
+
+marked.setOptions({
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value
+    }
+    return hljs.highlightAuto(code).value
+  },
+  breaks: true
+})
 
 const props = defineProps(['concept', 'isNew'])
 const emit = defineEmits(['deleted', 'updated', 'cancel-new'])
@@ -98,6 +78,11 @@ const editForm = reactive({
 
 const titleInput = ref(null)
 const explanationInput = ref(null)
+
+const renderMarkdown = (content) => {
+  if (!content) return ''
+  return marked(content)
+}
 
 const startEditing = () => {
   isEditing.value = true
@@ -135,18 +120,20 @@ const autoResizeAll = () => {
 }
 
 const save = async () => {
-  if (!editForm.title.trim()) return
+  if (!editForm.explanation.trim()) return
   saving.value = true
   try {
     let res
+    const payload = {
+      explanation: editForm.explanation,
+      title: 'Note',
+      keyPoints: '',
+      topicId: props.concept.topicId
+    }
     if (props.isNew || !localConcept.value._id) {
-      res = await axios.post('/api/concepts', {
-        ...editForm,
-        topicId: props.concept.topicId
-      })
-      // Update topic count hack (simulating backend logic or triggering reload)
+      res = await axios.post('/api/concepts', payload)
     } else {
-      res = await axios.put(`/api/concepts/${localConcept.value._id}`, editForm)
+      res = await axios.put(`/api/concepts/${localConcept.value._id}`, payload)
     }
     localConcept.value = res.data
     isEditing.value = false
@@ -186,74 +173,53 @@ onMounted(() => {
 <style scoped>
 .ccard {
   background: transparent;
-  border-left: 2px solid transparent;
-  padding: 12px 0;
-  margin-bottom: 8px;
-  transition: all 0.2s;
+  padding: 8px 12px;
+  margin-bottom: 2px;
+  border-left: 3px solid transparent;
+  transition: all 0.1s;
+  border-radius: 4px;
 }
 
 .ccard:hover:not(.is-editing) {
-  border-left-color: var(--border);
-  padding-left: 16px;
   background: var(--bg-subtle);
-  border-radius: 0 8px 8px 0;
+  border-left-color: var(--border);
 }
 
 .ccard.is-editing {
   background: var(--surface);
   border: 1px solid var(--accent-border);
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 8px;
+  padding: 20px;
   box-shadow: var(--shadow-md);
-  margin-bottom: 24px;
+  margin: 12px 0;
 }
 
 .ccard-inner {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-/* Header */
-.ccard-header {
-  display: flex;
-  align-items: center;
-}
-
-.title-view {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.c-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  cursor: text;
-}
-
-.ccard-actions {
+.ccard-actions-float {
   display: flex;
   gap: 4px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.1s;
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
-.ccard:hover .ccard-actions {
+.ccard:hover .ccard-actions-float {
   opacity: 1;
 }
 
 .icon-action {
-  padding: 6px;
-  border-radius: 6px;
+  padding: 4px;
+  border-radius: 4px;
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  display: flex;
-  align-items: center;
 }
 
 .icon-action:hover {
@@ -274,79 +240,61 @@ onMounted(() => {
   outline: none;
   color: var(--text-primary);
   font-family: inherit;
-  padding: 0;
 }
 
-.title-input {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--text-primary);
-}
+/* Title unused */
 
 .explanation-input {
   font-size: 15px;
   line-height: 1.6;
   color: var(--text-secondary);
   resize: none;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  min-height: 100px;
 }
 
-.explanation-view {
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  cursor: text;
-  min-height: 1.6em;
+.explanation-markdown :deep(p) { margin: 0 0 8px; font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
+.explanation-markdown :deep(ul), .explanation-markdown :deep(ol) { margin: 8px 0; padding-left: 20px; color: var(--text-secondary); }
+.explanation-markdown :deep(li) { margin-bottom: 4px; font-size: 14.5px; }
+.explanation-markdown :deep(strong) { color: var(--text-primary); font-weight: 700; }
+.explanation-markdown :deep(code) { 
+  background: var(--bg-subtle); 
+  padding: 2px 5px; 
+  border-radius: 4px; 
+  font-size: 13px; 
+  font-family: inherit;
+  color: var(--accent);
+}
+.explanation-markdown :deep(pre) {
+  background: #1e1e1e;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.explanation-markdown :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: #d4d4d4;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.explanation-markdown :deep(h1), .explanation-markdown :deep(h2), .explanation-markdown :deep(h3) {
+  color: var(--text-primary);
+  margin-top: 16px;
+  margin-bottom: 8px;
 }
 
-/* Footer Note (Zap) */
+/* Footer Note (Callout) - unused but kept for schema compatibility */
 .ccard-footer-note {
-  margin-top: 4px;
-}
-
-.kp-view {
-  background: var(--warning-subtle);
-  border-radius: 8px;
-  padding: 10px 14px;
-  cursor: text;
-}
-
-.kp-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--warning);
-  margin-bottom: 4px;
-}
-
-.kp-text {
-  font-size: 13.5px;
-  color: var(--warning);
-  font-style: italic;
-}
-
-.kp-edit {
-  background: var(--warning-subtle);
-  border: 1px dashed var(--warning-border);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.kp-input {
-  font-size: 13.5px;
-  color: var(--warning);
-  font-style: italic;
-  resize: none;
+  display: none;
 }
 
 /* Controls */
 .edit-controls {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .btn-save {
