@@ -10,7 +10,10 @@ export class Topic extends Document {
     description: string;
 
     @Prop()
-    keyInsights: string; // Most important notes for the topic
+    keyInsights: string; // Brief overview
+
+    @Prop({ default: '' })
+    theoryContent: string; // The detailed study document (The Big Note)
 
     @Prop({ default: 0 })
     totalQuestions: number;

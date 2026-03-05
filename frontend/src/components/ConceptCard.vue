@@ -1,338 +1,268 @@
 <template>
-  <div class="ccard" :class="{ 'is-editing': isEditing }">
-    <div class="ccard-inner">
-      <div v-if="!isEditing" class="ccard-actions-float">
-        <button class="icon-action" @click="startEditing" title="Edit"><Pencil :size="14" /></button>
-        <button class="icon-action danger" @click="deleteC" title="Delete"><Trash2 :size="14" /></button>
-      </div>
-
-      <!-- Explanation Section -->
-      <div class="ccard-body">
-        <textarea 
-          v-if="isEditing" 
-          v-model="editForm.explanation" 
-          class="inline-textarea explanation-input" 
-          placeholder="Write your thoughts here... (Markdown supported)"
-          rows="1"
-          @input="autoResize"
-          ref="explanationInput"
-        ></textarea>
-        <div v-else class="explanation-markdown" @click="startEditing" v-html="renderMarkdown(localConcept.explanation || 'Click to add explanation...')">
-        </div>
-      </div>
-
-      <!-- Save/Cancel Actions -->
-      <div v-if="isEditing" class="edit-controls">
-        <button class="btn-save" @click="save" :disabled="saving">
-          <Check v-if="!saving" :size="14" />
-          <span v-else class="spinner-sm"></span>
-          Done
-        </button>
-        <button class="btn-cancel" @click="cancelEdit">Cancel</button>
-      </div>
+  <div class="snippet-card" :class="{ 'is-editing': isEditing }">
+    <div class="card-tag"><Zap :size="10" /> IMPORTANT SNIPPET</div>
+    
+    <div class="card-controls">
+      <button class="icon-btn" @click="toggleEdit" title="Edit"><Pencil :size="12" /></button>
+      <button class="icon-btn danger" @click="showDeleteConfirm = true" title="Delete"><Trash2 :size="12" /></button>
     </div>
-  </div>
 
-  <ConfirmModal 
-    :show="showDeleteConfirm"
-    :title="localConcept.title"
-    :isFolder="false"
-    :loading="deleting"
-    @confirm="doDelete"
-    @cancel="showDeleteConfirm = false"
-  />
+    <div class="snippet-editor-wrapper" :class="{ 'is-view-only': !isEditing }">
+       <editor-content :editor="snippetEditor" />
+       
+       <!-- Mini Bubble Menu for Snippets -->
+       <div v-if="selection.show && isEditing" class="mini-bubble" :style="{ top: selection.y + 'px', left: selection.x + 'px' }">
+         <button @click="snippetEditor.chain().focus().toggleBold().run()" :class="{ 'active': snippetEditor.isActive('bold') }">B</button>
+         <button @click="snippetEditor.chain().focus().toggleItalic().run()" :class="{ 'active': snippetEditor.isActive('italic') }">I</button>
+         <button @click="snippetEditor.chain().focus().toggleCode().run()" :class="{ 'active': snippetEditor.isActive('code') }">{}</button>
+       </div>
+    </div>
+
+    <div v-if="isEditing" class="edit-actions">
+       <button class="btn-primary-sm" @click="save" :disabled="saving">Update Snippet</button>
+       <button class="btn-ghost-sm" @click="toggleEdit">Cancel</button>
+    </div>
+
+    <ConfirmModal 
+      :show="showDeleteConfirm"
+      title="this snippet"
+      :isFolder="false"
+      @confirm="doDelete"
+      @cancel="showDeleteConfirm = false"
+    />
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted } from 'vue'
-import { Pencil, Trash2, Zap, Check } from 'lucide-vue-next'
-import ConfirmModal from './ConfirmModal.vue'
+import { ref, reactive, onBeforeUnmount, watch } from 'vue'
+import { Zap, Pencil, Trash2, Check } from 'lucide-vue-next'
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
 import axios from 'axios'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css'
+import ConfirmModal from './ConfirmModal.vue'
 
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  },
-  breaks: true
-})
+const props = defineProps(['concept'])
+const emit = defineEmits(['deleted', 'updated'])
 
-const props = defineProps(['concept', 'isNew'])
-const emit = defineEmits(['deleted', 'updated', 'cancel-new'])
-
-const isEditing = ref(props.isNew || false)
-const saving = ref(false)
+const isEditing = ref(false)
+const saving    = ref(false)
 const showDeleteConfirm = ref(false)
-const deleting = ref(false)
 const localConcept = ref({ ...props.concept })
-const editForm = reactive({
-  title: props.concept.title || '',
-  explanation: props.concept.explanation || '',
-  keyPoints: props.concept.keyPoints || ''
+const selection = reactive({ show: false, x: 0, y: 0 })
+
+const snippetEditor = useEditor({
+  editable: false,
+  content: props.concept.explanation || '',
+  extensions: [
+    StarterKit,
+    Placeholder.configure({ placeholder: 'Explain this snippet...' })
+  ],
+  onSelectionUpdate: () => handleSelection(),
 })
 
-const titleInput = ref(null)
-const explanationInput = ref(null)
-
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  return marked(content)
-}
-
-const startEditing = () => {
-  isEditing.value = true
-  nextTick(() => {
-    autoResizeAll()
-    if (titleInput.value) titleInput.value.focus()
-  })
-}
-
-const cancelEdit = () => {
-  if (props.isNew) {
-    emit('cancel-new')
-  } else {
-    isEditing.value = false
-    Object.assign(editForm, {
-      title: localConcept.value.title,
-      explanation: localConcept.value.explanation,
-      keyPoints: localConcept.value.keyPoints
-    })
+const handleSelection = () => {
+  if (!snippetEditor.value || !isEditing.value) return
+  const { from, to } = snippetEditor.value.state.selection
+  if (from === to) {
+    selection.show = false
+    return
   }
+  const selectionObj = window.getSelection()
+  if (!selectionObj || selectionObj.isCollapsed) {
+    selection.show = false
+    return
+  }
+  const range = selectionObj.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+  const parentRect = document.querySelector('.important-sidebar').getBoundingClientRect()
+  
+  selection.show = true
+  selection.x = rect.left - parentRect.left + (rect.width / 2)
+  selection.y = rect.top - parentRect.top - 40
 }
 
-const autoResize = (e) => {
-  const el = e?.target || e
-  if (!el || !el.style) return
-  el.style.height = 'auto'
-  el.style.height = el.scrollHeight + 'px'
-}
+onBeforeUnmount(() => {
+  snippetEditor.value.destroy()
+})
 
-const autoResizeAll = () => {
-  const textareas = document.querySelectorAll('.ccard.is-editing textarea')
-  textareas.forEach(el => {
-    el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
-  })
+const toggleEdit = () => {
+  isEditing.value = !isEditing.value
+  snippetEditor.value.setEditable(isEditing.value)
+  if (!isEditing.value) {
+    snippetEditor.value.commands.setContent(localConcept.value.explanation)
+  }
 }
 
 const save = async () => {
-  if (!editForm.explanation.trim()) return
   saving.value = true
+  const html = snippetEditor.value.getHTML()
   try {
-    let res
-    const payload = {
-      explanation: editForm.explanation,
-      title: 'Note',
-      keyPoints: '',
-      topicId: props.concept.topicId
-    }
-    if (props.isNew || !localConcept.value._id) {
-      res = await axios.post('/api/concepts', payload)
-    } else {
-      res = await axios.put(`/api/concepts/${localConcept.value._id}`, payload)
-    }
+    const res = await axios.put(`/api/concepts/${localConcept.value._id}`, {
+      explanation: html,
+      title: 'Snippet',
+      topicId: localConcept.value.topicId
+    })
     localConcept.value = res.data
     isEditing.value = false
+    snippetEditor.value.setEditable(false)
     emit('updated')
-  } catch (err) {
-    console.error('Save failed', err)
-  } finally {
-    saving.value = false
-  }
+  } catch (err) { console.error(err) }
+  finally { saving.value = false }
 }
 
-const deleteC = () => {
-  showDeleteConfirm.value = true
-}
+watch(() => props.concept.explanation, (newVal) => {
+  if (!isEditing.value) {
+    snippetEditor.value.commands.setContent(newVal)
+    localConcept.value.explanation = newVal
+  }
+})
 
 const doDelete = async () => {
-  deleting.value = true
   try {
     await axios.delete(`/api/concepts/${localConcept.value._id}`)
     emit('deleted')
-  } catch (e) {
-    console.error('Delete failed:', e)
-    alert('Failed to delete concept.')
-  } finally {
-    deleting.value = false
-    showDeleteConfirm.value = false
-  }
+  } catch (e) { console.error(e) }
 }
-
-onMounted(() => {
-  if (props.isNew) {
-    nextTick(autoResizeAll)
-  }
-})
 </script>
 
 <style scoped>
-.ccard {
-  background: transparent;
-  padding: 8px 12px;
-  margin-bottom: 2px;
-  border-left: 3px solid transparent;
-  transition: all 0.1s;
-  border-radius: 4px;
-}
-
-.ccard:hover:not(.is-editing) {
-  background: var(--bg-subtle);
-  border-left-color: var(--border);
-}
-
-.ccard.is-editing {
+.snippet-card {
   background: var(--surface);
-  border: 1px solid var(--accent-border);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 20px;
-  box-shadow: var(--shadow-md);
-  margin: 12px 0;
+  padding: 14px;
+  margin-bottom: 12px;
+  position: relative;
+  transition: transform 0.15s, border-color 0.15s;
 }
 
-.ccard-inner {
+.snippet-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-tag {
+  font-size: 8.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
 }
 
-.ccard-actions-float {
+.card-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: flex;
   gap: 4px;
   opacity: 0;
   transition: opacity 0.1s;
-  position: absolute;
-  top: 8px;
-  right: 8px;
 }
 
-.ccard:hover .ccard-actions-float {
-  opacity: 1;
-}
+.snippet-card:hover .card-controls { opacity: 1; }
 
-.icon-action {
-  padding: 4px;
-  border-radius: 4px;
+.icon-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
   cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+.icon-btn:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.icon-btn.danger:hover { color: #ef4444; background: #fee2e2; }
+
+.snippet-editor-wrapper {
+  margin: 0; 
+  font-size: 13px; 
+  line-height: 1.6; 
+  color: var(--text-secondary);
+  position: relative;
 }
 
-.icon-action:hover {
-  background: var(--bg-subtle);
-  color: var(--text-primary);
+.snippet-editor-wrapper :deep(.ProseMirror) {
+  outline: none;
+  min-height: 20px;
 }
 
-.icon-action.danger:hover {
-  color: var(--danger);
-  background: #fee2e2;
+.snippet-editor-wrapper :deep(.ProseMirror p) { margin-bottom: 8px; }
+.snippet-editor-wrapper :deep(.ProseMirror h1) { font-size: 18px; margin: 12px 0 6px; }
+.snippet-editor-wrapper :deep(.ProseMirror h2) { font-size: 15px; margin: 10px 0 4px; }
+.snippet-editor-wrapper :deep(.ProseMirror ul) { padding-left: 16px; margin-bottom: 8px; }
+
+.snippet-editor-wrapper :deep(.ProseMirror code) {
+  background: rgba(135,131,120,0.15); color: #eb5757; border-radius: 3px; padding: 0.1em 0.3em; font-size: 90%;
 }
 
-/* Inputs */
-.inline-input, .inline-textarea {
+.snippet-editor-wrapper :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder); float: left; color: #adb5bd; pointer-events: none; height: 0;
+}
+
+.mini-bubble {
+  position: absolute; z-index: 100; display: flex; background: #1e1e1e;
+  padding: 3px; border-radius: 6px; gap: 2px; transform: translate(-50%, -100%);
+}
+.mini-bubble button {
+  background: none; border: none; color: white; font-size: 10px; font-weight: 700;
+  cursor: pointer; padding: 4px 8px; border-radius: 4px;
+}
+.mini-bubble button:hover { background: rgba(255,255,255,0.1); }
+.mini-bubble button.active { color: var(--accent); }
+
+.is-view-only :deep(.ProseMirror) {
+  cursor: default;
+}
+
+.is-editing {
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1);
+  background: #fff;
+}
+
+/* Edit Mode */
+.minimal-textarea {
   width: 100%;
   border: none;
-  background: transparent;
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 13.5px;
+  color: var(--text-primary);
   outline: none;
-  color: var(--text-primary);
-  font-family: inherit;
-}
-
-/* Title unused */
-
-.explanation-input {
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text-secondary);
   resize: none;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  min-height: 100px;
-}
-
-.explanation-markdown :deep(p) { margin: 0 0 8px; font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
-.explanation-markdown :deep(ul), .explanation-markdown :deep(ol) { margin: 8px 0; padding-left: 20px; color: var(--text-secondary); }
-.explanation-markdown :deep(li) { margin-bottom: 4px; font-size: 14.5px; }
-.explanation-markdown :deep(strong) { color: var(--text-primary); font-weight: 700; }
-.explanation-markdown :deep(code) { 
-  background: var(--bg-subtle); 
-  padding: 2px 5px; 
-  border-radius: 4px; 
-  font-size: 13px; 
   font-family: inherit;
-  color: var(--accent);
-}
-.explanation-markdown :deep(pre) {
-  background: #1e1e1e;
-  padding: 16px;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 12px 0;
-}
-.explanation-markdown :deep(pre code) {
-  background: transparent;
-  padding: 0;
-  color: #d4d4d4;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.explanation-markdown :deep(h1), .explanation-markdown :deep(h2), .explanation-markdown :deep(h3) {
-  color: var(--text-primary);
-  margin-top: 16px;
-  margin-bottom: 8px;
 }
 
-/* Footer Note (Callout) - unused but kept for schema compatibility */
-.ccard-footer-note {
-  display: none;
-}
-
-/* Controls */
-.edit-controls {
+.edit-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.btn-save {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.btn-primary-sm {
   background: var(--accent);
   color: white;
   border: none;
-  padding: 6px 16px;
-  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11.5px;
   font-weight: 600;
-  font-size: 13px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
-.btn-cancel {
+.btn-ghost-sm {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11.5px;
   cursor: pointer;
 }
-
-.btn-cancel:hover {
-  text-decoration: underline;
-}
-
-.spinner-sm {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>
