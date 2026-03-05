@@ -35,19 +35,14 @@ export class TopicsService {
         return t;
     }
 
-    async updatePdf(id: string, pdfUrl: string, pdfKey: string): Promise<Topic> {
-        const topic = await this.findOne(id);
-
-        // Delete old PDF if exists
-        if (topic.pdfKey) {
-            try {
-                await this.storageService.deleteFile(topic.pdfKey);
-            } catch (e) {
-                console.error('Failed to delete old PDF:', e);
-            }
-        }
-
-        return this.update(id, { pdfUrl, pdfKey });
+    async addMaterial(id: string, material: any): Promise<Topic> {
+        const topic = await this.topicModel.findByIdAndUpdate(
+            id,
+            { $push: { materials: material } },
+            { new: true }
+        ).exec() as any as Topic;
+        if (!topic) throw new NotFoundException('Topic not found');
+        return topic;
     }
 
     async remove(id: string): Promise<any> {
@@ -66,24 +61,38 @@ export class TopicsService {
             await this.conceptModel.deleteMany({ topicId: id }).exec();
         }
 
-        // Delete PDF if exists
-        if (topic.pdfKey) {
-            try {
-                await this.storageService.deleteFile(topic.pdfKey);
-            } catch (e) {
-                console.error('Failed to delete PDF from storage:', e);
+        // Delete all PDFs if exists
+        if (topic.materials && topic.materials.length > 0) {
+            for (const material of topic.materials) {
+                if (material.key) {
+                    try {
+                        await this.storageService.deleteFile(material.key);
+                    } catch (e) {
+                        console.error('Failed to delete PDF from storage:', e);
+                    }
+                }
             }
         }
 
         return this.topicModel.findByIdAndDelete(id).exec();
     }
 
-    async removePdf(id: string): Promise<Topic> {
+    async removeMaterial(id: string, materialId: string): Promise<Topic> {
         const topic = await this.findOne(id);
-        if (topic.pdfKey) {
-            await this.storageService.deleteFile(topic.pdfKey);
+        const material = topic.materials.find(m => m._id.toString() === materialId);
+
+        if (material && material.key) {
+            await this.storageService.deleteFile(material.key);
         }
-        return this.update(id, { pdfUrl: null, pdfKey: null });
+
+        const updatedTopic = await this.topicModel.findByIdAndUpdate(
+            id,
+            { $pull: { materials: { _id: materialId } } },
+            { new: true }
+        ).exec() as any as Topic;
+
+        if (!updatedTopic) throw new NotFoundException('Topic not found');
+        return updatedTopic;
     }
 
     async move(id: string, parentId: string): Promise<Topic> {

@@ -172,6 +172,79 @@ body {
   color: var(--text-primary);
 }
 
+.btn-primary-sm,
+.btn-ghost-sm,
+.btn-minimal,
+.btn-icon-sm,
+.btn-icon-xs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  background: none;
+}
+
+.btn-primary-sm {
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 14px;
+}
+
+.btn-primary-sm:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-ghost-sm {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-color: var(--border);
+}
+
+.btn-ghost-sm:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.btn-minimal {
+  background: transparent;
+  color: var(--accent);
+  padding: 6px 10px;
+}
+
+.btn-minimal:hover {
+  background: var(--accent-subtle);
+}
+
+.btn-icon-sm {
+  padding: 6px;
+  color: var(--text-muted);
+}
+
+.btn-icon-sm:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.btn-icon-xs {
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+
+.btn-icon-xs:hover {
+  background: var(--bg-subtle);
+  color: var(--danger);
+}
+
 /* ─── Field ─── */
 .field-label {
   font-size: 11px;

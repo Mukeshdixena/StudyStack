@@ -33,11 +33,17 @@ export class Topic extends Document {
     @Prop({ default: 0 })
     order: number; // For manual sorting later
 
-    @Prop({ trim: true })
-    pdfUrl: string; // URL of the uploaded PDF
-
-    @Prop({ trim: true })
-    pdfKey: string; // S3/Spaces key for deletion
+    @Prop({
+        type: [{
+            name: String,
+            url: String,
+            key: String, // S3/Spaces key
+            type: { type: String, enum: ['upload', 'url'], default: 'url' },
+            createdAt: { type: Date, default: Date.now }
+        }],
+        default: []
+    })
+    materials: any[];
 }
 
 export const TopicSchema = SchemaFactory.createForClass(Topic);

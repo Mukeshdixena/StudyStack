@@ -127,26 +127,79 @@
            </div>
         </div>
 
-        <div v-if="activeTab === 'pdf'" class="pdf-tab">
-           <div v-if="topic.pdfUrl" class="pdf-container">
-              <div class="pdf-toolbar">
-                 <div class="pdf-info">
-                   <BookOpen :size="14" />
-                   <span>Study Material.pdf</span>
-                 </div>
-                 <div class="pdf-actions">
-                   <button class="btn-icon-sm" @click="openPdfNewTab" title="Open in New Tab"><ExternalLink :size="14" /></button>
-                   <button class="btn-icon-sm" @click="downloadPdf" title="Download"><Download :size="14" /></button>
-                   <div class="divider"></div>
-                   <button class="btn-ghost-sm" @click="$refs.fileInput.click()">Replace</button>
+        <div v-if="activeTab === 'pdf'" class="materials-tab">
+           <div class="materials-header">
+              <h3>Study Materials ({{ topic.materials?.length || 0 }})</h3>
+              <div class="materials-actions">
+                <div class="url-add-box" v-if="showingUrlInput">
+                   <input v-model="newMaterialUrl" placeholder="Paste URL here..." class="url-input" @keyup.enter="addMaterialByUrl" />
+                   <button class="btn-primary-sm" @click="addMaterialByUrl">Add</button>
+                   <button class="btn-ghost-sm" @click="showingUrlInput = false">Cancel</button>
+                </div>
+                <button v-else class="btn-minimal" @click="showingUrlInput = true">
+                  <ExternalLink :size="14" /> Paste URL
+                </button>
+                <button class="btn-primary-sm" @click="fileInput && fileInput.click()">
+                  <Upload :size="14" /> Upload PDF
+                </button>
+              </div>
+           </div>
+
+           <div v-if="topic.materials && topic.materials.length > 0" class="materials-container-stacked">
+              <!-- Inline List at Top -->
+              <div v-if="showMaterialsSidebar" class="materials-top-list">
+                 <div v-for="m in topic.materials" :key="m._id" 
+                      class="material-pill" 
+                      :class="{ active: activeMaterial?._id === m._id }"
+                      @click="activeMaterial = m">
+                    <BookOpen v-if="m.type === 'upload'" :size="12" />
+                    <Globe v-else :size="12" />
+                    <span class="m-pill-name">{{ m.name }}</span>
+                    <button class="pill-delete" @click.stop="confirmRemoveMaterial(m._id)">
+                      <X :size="10" />
+                    </button>
                  </div>
               </div>
-              <iframe :src="topic.pdfUrl" class="pdf-viewer"></iframe>
+
+              <!-- Main Large Viewer -->
+              <div class="material-viewer-full">
+                 <div v-if="activeMaterial" class="viewer-wrap">
+                    <div class="viewer-toolbar">
+                       <div class="flex items-center gap-3">
+                          <button class="btn-icon-xs" @click="showMaterialsSidebar = !showMaterialsSidebar" title="Toggle List">
+                             <LayoutGrid :size="14" />
+                          </button>
+                          <span class="m-current-name">{{ activeMaterial.name }}</span>
+                       </div>
+                       <div class="v-tools">
+                          <button class="btn-minimal" @click="openMaterial(activeMaterial)">
+                            <ExternalLink :size="13" /> Open
+                          </button>
+                          <button v-if="activeMaterial.type === 'upload'" class="btn-minimal" @click="downloadMaterial(activeMaterial)">
+                            <Download :size="13" /> Download
+                          </button>
+                       </div>
+                    </div>
+                    <iframe v-if="isViewable(activeMaterial.url)" :src="activeMaterial.url" class="pdf-iframe-full"></iframe>
+                    <div v-else class="non-viewable">
+                       <p>This material cannot be previewed in the app.</p>
+                       <button class="btn-primary" @click="openMaterial(activeMaterial)">Open in New Tab</button>
+                    </div>
+                 </div>
+                 <div v-else class="viewer-empty">
+                    <div class="empty-prompt">
+                       <BookOpen :size="48" style="opacity: 0.2; margin-bottom: 20px;" />
+                       <p>Select a material from above to start studying</p>
+                    </div>
+                 </div>
+              </div>
            </div>
-           <div v-else class="pdf-empty" @click="$refs.fileInput.click()">
+
+           <div v-else class="pdf-empty" @click="fileInput && fileInput.click()">
               <Upload :size="32" />
-              <p>Upload a PDF for this topic</p>
+              <p>No study materials yet. Upload a PDF or paste a link.</p>
            </div>
+           
            <input type="file" ref="fileInput" class="hidden" accept=".pdf" @change="handleFileUpload" />
         </div>
       </main>
@@ -249,6 +302,7 @@ const emit = defineEmits(['refresh-topics'])
 const topic = ref(null)
 const questions = ref([])
 const activeTab = ref('theory')
+const fileInput = ref(null)
 const isEditingTheory = ref(false)
 const showAddQuestion = ref(false)
 const isGeneratingAiQuestions = ref(false)
@@ -259,6 +313,11 @@ const isResizing = ref(false)
 const showMenu = ref(false)
 const editingTopic = ref(false)
 const showDeleteConfirm = ref(false)
+
+const showingUrlInput = ref(false)
+const newMaterialUrl = ref('')
+const activeMaterial = ref(null)
+const showMaterialsSidebar = ref(true)
 
 const savingStatus = ref('idle') // idle, saving, saved
 const snippetSavingStatus = ref('idle') // idle, saving, saved
@@ -452,12 +511,60 @@ const generateAiQuestions = async () => {
   }
 }
 
-const downloadPdf = () => {
-  if (!topic.value.pdfUrl) return
+const openMaterial = (m) => {
+  if (m.url) window.open(m.url, '_blank')
+}
+
+const downloadMaterial = (m) => {
+  if (!m.url) return
   const link = document.createElement('a')
-  link.href = topic.value.pdfUrl
-  link.download = `${topic.value.name}.pdf`
+  link.href = m.url
+  link.download = m.name
+  document.body.appendChild(link)
   link.click()
+  document.body.removeChild(link)
+}
+
+const isViewable = (url) => {
+  if (!url) return false
+  return url.toLowerCase().endsWith('.pdf') || url.includes('scaler-production-new.s3.ap-southeast-1.amazonaws.com')
+}
+
+const addMaterialByUrl = async () => {
+  if (!newMaterialUrl.value.trim()) return
+  try {
+    // Try to extract a name from the URL or ask for one?
+    // For now, let's just use "Link Material" or the ending of the URL
+    const url = newMaterialUrl.value.trim()
+    let name = 'Link Material'
+    try {
+      const parts = new URL(url).pathname.split('/')
+      name = parts[parts.length - 1] || 'Link Material'
+      // Remove query params from name if any
+      name = name.split('?')[0]
+      if (name.length > 50) name = name.substring(0, 47) + '...'
+    } catch (e) {}
+
+    await axios.post(`/api/topics/${topicId.value}/materials`, { name, url })
+    newMaterialUrl.value = ''
+    showingUrlInput.value = false
+    loadData()
+  } catch (e) {
+    alert('Failed to add link')
+  }
+}
+
+const confirmRemoveMaterial = async (materialId) => {
+  if (!confirm('Are you sure you want to remove this material?')) return
+  try {
+    await axios.delete(`/api/topics/${topicId.value}/materials/${materialId}`)
+    if (activeMaterial.value && activeMaterial.value._id === materialId) {
+      activeMaterial.value = null
+    }
+    loadData()
+  } catch (e) {
+    alert('Failed to remove material')
+  }
 }
 
 // Sidebar Resize Logic
@@ -837,35 +944,59 @@ watch(topicId, loadData, { immediate: true })
 .status-indicator.sm { font-size: 10px; font-weight: 700; opacity: 0.6; }
 
 .questions-tab { width: 100%; max-width: 900px; }
-.tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.tab-header h2 { font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 0; }
+.tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; }
 
-.pdf-tab { width: 100%; max-width: 1000px; }
-.pdf-container { 
-  display: flex; flex-direction: column; gap: 12px; height: 85vh;
+/* Stacked Materials Layout */
+.materials-tab { width: 100%; max-width: 1300px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 30px; }
+.materials-header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding: 4px 0 16px; margin-bottom: 4px; }
+.materials-header h3 { font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 0; }
+.materials-actions { display: flex; align-items: center; gap: 14px; }
+
+.url-add-box { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--accent-border); padding: 4px 10px; border-radius: 8px; box-shadow: var(--shadow-sm); }
+.url-input { border: none; background: none; outline: none; font-size: 13px; color: var(--text-primary); width: 260px; }
+
+.materials-container-stacked { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.materials-top-list { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 4px; }
+
+.material-pill {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px; 
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px;
+  cursor: pointer; transition: all 0.2s; font-size: 12px; font-weight: 600; color: var(--text-secondary);
 }
-.pdf-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 16px; background: var(--bg-subtle); border-radius: 8px;
-  border: 1px solid var(--border);
+.material-pill:hover { border-color: var(--accent-border); color: var(--text-primary); }
+.material-pill.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
+
+.m-pill-name { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-delete { 
+  display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+  border-radius: 50%; opacity: 0; transition: opacity 0.2s; background: var(--border); color: var(--text-muted); border: none;
 }
-.pdf-info { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-.pdf-actions { display: flex; align-items: center; gap: 8px; }
-.pdf-actions .divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+.material-pill:hover .pill-delete { opacity: 1; }
+.pill-delete:hover { background: var(--danger); color: white; }
+
+.viewer-toolbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+.m-current-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.pdf-iframe-full { width: 100%; height: calc(100vh - 320px); min-height: 600px; border: none; background: #fff; }
+
+.material-viewer-full { 
+  flex: 1; min-height: 600px; background: #fff; border: 1px solid var(--border); 
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column;
+}
+
+.empty-prompt { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); }
+
+.pdf-empty { 
+  display: flex; flex-direction: column; align-items: center; justify-content: center; 
+  gap: 16px; padding: 100px 0; border: 2px dashed var(--border); border-radius: 16px; 
+  color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+}
+.pdf-empty:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); } 
 
 .pdf-viewer { 
   flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #fff;
 }
-
-.pdf-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 400px; border: 2px dashed var(--border); border-radius: 16px; color: var(--text-muted); cursor: pointer;
-}
-
-.btn-icon-sm {
-  background: none; border: none; padding: 6px; border-radius: 6px; cursor: pointer;
-  color: var(--text-muted); display: flex; align-items: center;
-}
-.btn-icon-sm:hover { background: var(--border); color: var(--text-primary); }
 
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000;

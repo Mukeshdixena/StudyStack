@@ -32,12 +32,25 @@ export class TopicsController {
         @UploadedFile() file: Express.Multer.File
     ) {
         const { url, key } = await this.storageService.uploadFile(file);
-        return this.topicsService.updatePdf(id, url, key);
+        return this.topicsService.addMaterial(id, {
+            name: file.originalname,
+            url,
+            key,
+            type: 'upload'
+        });
     }
 
-    @Delete(':id/pdf')
-    removePdf(@Param('id') id: string) {
-        return this.topicsService.removePdf(id);
+    @Post(':id/materials')
+    addMaterialUrl(@Param('id') id: string, @Body() data: { name: string, url: string }) {
+        return this.topicsService.addMaterial(id, {
+            ...data,
+            type: 'url'
+        });
+    }
+
+    @Delete(':id/materials/:materialId')
+    removeMaterial(@Param('id') id: string, @Param('materialId') materialId: string) {
+        return this.topicsService.removeMaterial(id, materialId);
     }
 
     @Put(':id/move')

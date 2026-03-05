@@ -70,24 +70,20 @@ The AI will structure everything into a complete DSA study document."
         </div>
       </div>
 
-      <!-- Main Content: Markdown Editor -->
-      <div class="field-group">
+      <!-- Main Content: Rich Text Editor -->
+      <div class="field-group" style="flex:1; display:flex; flex-direction:column; min-height:300px;">
         <div class="content-header">
-          <label class="field-label" style="margin:0">Study Note Content <span class="opt">(Markdown supported)</span></label>
-          <div class="content-hints">
-            <span class="hint-chip"># Heading</span>
-            <span class="hint-chip">```code```</span>
-            <span class="hint-chip">**bold**</span>
-            <span class="hint-chip">- list</span>
+          <label class="field-label" style="margin:0">Study Note Content</label>
+          <div v-if="editor" class="editor-toolbar">
+            <button type="button" @click="editor.chain().focus().toggleHeading({ level: 1 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 1 }) }">H1</button>
+            <button type="button" @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 2 }) }">H2</button>
+            <button type="button" @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }"><b>B</b></button>
+            <button type="button" @click="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }"><i>I</i></button>
+            <button type="button" @click="editor.chain().focus().toggleCode().run()" :class="{ 'is-active': editor.isActive('code') }">{}</button>
+            <button type="button" @click="editor.chain().focus().toggleCodeBlock().run()" :class="{ 'is-active': editor.isActive('codeBlock') }">Code Block</button>
           </div>
         </div>
-        <textarea
-          v-model="form.content"
-          class="field-input content-ta"
-          rows="18"
-          spellcheck="false"
-          placeholder="# 1. Understand the Problem&#10;...&#10;&#10;# 2. Brute Force&#10;...&#10;&#10;# 3. Optimized Approach&#10;...&#10;&#10;# 4. Code&#10;```java&#10;// your code&#10;```"
-        ></textarea>
+        <editor-content :editor="editor" class="field-input content-ta" style="flex:1" />
       </div>
 
       <!-- Footer -->
@@ -103,9 +99,16 @@ The AI will structure everything into a complete DSA study document."
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, onBeforeUnmount } from 'vue'
 import { Sparkles } from 'lucide-vue-next'
 import axios from 'axios'
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import Heading from '@tiptap/extension-heading'
+import CodeBlock from '@tiptap/extension-code-block'
+import Code from '@tiptap/extension-code'
+import { marked } from 'marked'
 
 const props = defineProps(['topicId', 'initial'])
 const emit = defineEmits(['saved'])
@@ -126,6 +129,26 @@ const form = reactive({
   content: '',
 })
 
+// Setup editor
+const editor = useEditor({
+  content: form.content,
+  extensions: [
+    StarterKit.configure({
+      heading: false,
+      codeBlock: false,
+      code: false
+    }),
+    Heading.configure({ levels: [1, 2, 3] }),
+    CodeBlock,
+    Code,
+    Placeholder.configure({ placeholder: 'Start writing your study notes here...' })
+  ]
+})
+
+onBeforeUnmount(() => {
+  if (editor.value) editor.value.destroy()
+})
+
 // Populate if editing
 watch(() => props.initial, (init) => {
   if (!init) return
@@ -139,6 +162,10 @@ watch(() => props.initial, (init) => {
     content: init.content || '',
   })
   tagsRaw.value = (init.tags || []).join(', ')
+  
+  if (editor.value && init.content) {
+    editor.value.commands.setContent(init.content)
+  }
 }, { immediate: true })
 
 const refineWithAI = async () => {
@@ -148,12 +175,16 @@ const refineWithAI = async () => {
     const res = await axios.post('/api/ai/refine-question', { rawInput: rawInput.value })
     const data = res.data
     if (data) {
+      const htmlContent = data.content ? marked.parse(data.content) : ''
       Object.assign(form, {
         title: data.title || '',
         difficulty: data.difficulty || 'medium',
-        content: data.content || '',
+        content: htmlContent,
       })
       tagsRaw.value = (data.tags || []).join(', ')
+      if (editor.value) {
+        editor.value.commands.setContent(htmlContent)
+      }
       isPopulated.value = true
       mode.value = 'manual'
     }
@@ -167,6 +198,10 @@ const refineWithAI = async () => {
 
 const save = async () => {
   saving.value = true
+  if (editor.value) {
+    form.content = editor.value.getHTML()
+  }
+  
   try {
     const payload = {
       ...form,
@@ -209,20 +244,58 @@ const save = async () => {
 .field-group { display: flex; flex-direction: column; gap: 5px; }
 
 .content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.content-hints { display: flex; gap: 6px; flex-wrap: wrap; }
-.hint-chip { font-size: 10px; font-weight: 600; color: var(--text-muted); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: monospace; }
+.editor-toolbar { display: flex; gap: 4px; flex-wrap: wrap; }
+.editor-toolbar button { padding: 4px 8px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: all .2s; }
+.editor-toolbar button:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.editor-toolbar button.is-active { background: var(--accent); color: white; border-color: var(--accent); }
 
 .content-ta {
-  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.7;
   background: #0d1117 !important;
   color: #e6edf3 !important;
   border-color: #30363d !important;
   resize: vertical;
   min-height: 240px;
+  overflow-y: auto;
+  padding: 0 !important;
 }
-.content-ta:focus { border-color: #388bfd !important; }
+.content-ta:focus-within { border-color: #388bfd !important; }
+
+/* Tiptap content styling overrides */
+.content-ta :deep(.ProseMirror) {
+  min-height: 240px;
+  padding: 14px;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.6;
+  font-size: 13.5px;
+}
+.content-ta :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: #4b5268;
+  pointer-events: none;
+  height: 0;
+}
+.content-ta :deep(.ProseMirror pre) {
+  background: #161b22;
+  color: #c9d1d9;
+  font-family: 'Fira Code', monospace;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 10px 0;
+  border: 1px solid #30363d;
+}
+.content-ta :deep(.ProseMirror code) {
+  font-family: 'Fira Code', monospace;
+  background: rgba(255,255,255,0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.content-ta :deep(.ProseMirror h1) { font-size: 16px; font-weight: 800; margin: 16px 0 8px; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
+.content-ta :deep(.ProseMirror h2) { font-size: 14px; font-weight: 700; margin: 12px 0 6px; }
+.content-ta :deep(.ProseMirror blockquote) { border-left: 3px solid #388bfd; margin-left: 0; padding-left: 14px; color: #8b949e; }
+.content-ta :deep(.ProseMirror ul), .content-ta :deep(.ProseMirror ol) { padding-left: 20px; }
 
 .field-label { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
 .req { color: var(--danger); }
