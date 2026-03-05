@@ -3,57 +3,77 @@
     <!-- ── Row 1: Difficulty + Title + Badges ── -->
     <div class="qcard-top">
       <div class="qcard-left">
+        <div class="solved-indicator" v-if="question.isSolved"><Check :size="12" /></div>
         <span class="diff-badge" :class="question.difficulty">{{ question.difficulty }}</span>
         <h3 class="q-title">{{ question.title }}</h3>
       </div>
       <div class="qcard-actions">
-        <a v-if="question.leetcodeLink" :href="question.leetcodeLink" target="_blank" class="link-pill lc" title="LeetCode">LC</a>
-        <a v-if="question.gfgLink"      :href="question.gfgLink"      target="_blank" class="link-pill gfg" title="GFG">GFG</a>
-        <button class="icon-action" :class="{ active: question.isSolved }" @click="toggleSolved" title="Mark Solved">
-          <CheckCircle2 :size="15" />
-        </button>
-        <button class="icon-action warn" :class="{ active: question.needsRevision }" @click="toggleRevision" title="Needs Revision">
-          <RotateCcw :size="15" />
-        </button>
-        <button class="icon-action" @click="editing = true" title="Edit">
-          <Pencil :size="14" />
-        </button>
-        <button class="icon-action danger" @click="deleteQ" title="Delete">
-          <Trash2 :size="14" />
-        </button>
+        <a v-if="question.leetcodeLink" :href="question.leetcodeLink" target="_blank" class="link-pill lc">LC</a>
+        <a v-if="question.gfgLink"      :href="question.gfgLink"      target="_blank" class="link-pill gfg">GFG</a>
+        <button class="icon-action" @click="editing = true" title="Edit"><Pencil :size="14" /></button>
+        <button class="icon-action danger" @click="deleteQ" title="Delete"><Trash2 :size="14" /></button>
       </div>
     </div>
 
     <!-- ── Notes ── -->
     <p v-if="question.personalNotes" class="q-notes">{{ question.personalNotes }}</p>
 
-    <!-- ── Approaches ── -->
-    <div v-if="question.approaches && question.approaches.length" class="approaches-wrap">
-      <!-- Approach tabs -->
-      <div class="approach-tabs">
-        <button
-          v-for="(ap, i) in question.approaches"
-          :key="i"
-          class="ap-tab"
-          :class="{ active: activeApproach === i }"
-          @click="activeApproach = i"
-        >{{ ap.title || `Approach ${i + 1}` }}</button>
+    <!-- ── Interaction Bar ── -->
+    <div class="card-footer-actions">
+      <div class="learning-state">
+        <button class="state-btn solved" :class="{ active: question.isSolved }" @click="toggleSolved">
+          {{ question.isSolved ? 'Solved' : 'Mark Solved' }}
+        </button>
+        <button class="state-btn revision" :class="{ active: question.needsRevision }" @click="toggleRevision">
+          <RotateCcw :size="12" /> {{ question.needsRevision ? 'Needs Revision' : 'Solid' }}
+        </button>
       </div>
+      <button class="btn-reveal" @click="showSolution = !showSolution">
+        {{ showSolution ? 'Hide Solution' : 'See Solution' }}
+        <component :is="showSolution ? ChevronUp : ChevronDown" :size="16" />
+      </button>
+    </div>
 
-      <!-- Approach Content -->
-      <div v-if="question.approaches[activeApproach]" class="approach-content">
-        <div v-if="question.approaches[activeApproach].timeComplexity || question.approaches[activeApproach].spaceComplexity" class="complexity-row">
-          <span v-if="question.approaches[activeApproach].timeComplexity" class="complexity-chip">⏱ {{ question.approaches[activeApproach].timeComplexity }}</span>
-          <span v-if="question.approaches[activeApproach].spaceComplexity" class="complexity-chip">💾 {{ question.approaches[activeApproach].spaceComplexity }}</span>
-          <span v-if="question.approaches[activeApproach].language" class="lang-chip">{{ question.approaches[activeApproach].language }}</span>
+    <!-- ── Collapsible Solution ── -->
+    <div v-if="showSolution" class="solution-reveal">
+      <div v-if="question.approaches && question.approaches.length" class="approaches-wrap-fancy">
+        <div class="ap-nav">
+          <button
+            v-for="(ap, i) in question.approaches"
+            :key="i"
+            class="ap-nav-btn"
+            :class="{ active: activeApproach === i }"
+            @click="activeApproach = i"
+          >{{ ap.title || `Approach ${i + 1}` }}</button>
         </div>
-        <pre v-if="question.approaches[activeApproach].code" class="code-block"><code>{{ question.approaches[activeApproach].code }}</code></pre>
-        <p v-if="question.approaches[activeApproach].notes" class="ap-notes">{{ question.approaches[activeApproach].notes }}</p>
+
+        <div v-if="question.approaches[activeApproach]" class="ap-body">
+          <div class="sub-tabs">
+            <button class="sub-tab" :class="{ active: activeSubTab === 'logic' }" @click="activeSubTab = 'logic'">Logic & Logic</button>
+            <button class="sub-tab" :class="{ active: activeSubTab === 'code' }" @click="activeSubTab = 'code'">Clean Implementation</button>
+          </div>
+
+          <div class="sub-content">
+            <div v-if="activeSubTab === 'logic'" class="logic-pane animate-fade">
+              <div class="complexity-row mb-3">
+                <span class="complexity-chip">⏱ {{ question.approaches[activeApproach].timeComplexity || 'N/A' }}</span>
+                <span class="complexity-chip">💾 {{ question.approaches[activeApproach].spaceComplexity || 'O(1)' }}</span>
+              </div>
+              <p class="logic-notes">{{ question.approaches[activeApproach].notes || 'No logic explanation provided.' }}</p>
+            </div>
+            <div v-if="activeSubTab === 'code'" class="code-pane animate-fade">
+              <div class="code-header">
+                <span class="lang-tag">{{ question.approaches[activeApproach].language || 'code' }}</span>
+              </div>
+              <pre class="code-block-fancy"><code>{{ question.approaches[activeApproach].code }}</code></pre>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- ── Tags ── -->
-    <div v-if="question.tags && question.tags.length" class="q-tags">
+    <div v-if="question.tags && question.tags.length" class="q-tags mt-2">
       <span v-for="tag in question.tags" :key="tag" class="tag-chip">#{{ tag }}</span>
     </div>
   </div>
@@ -86,7 +106,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { CheckCircle2, RotateCcw, Pencil, Trash2, X } from 'lucide-vue-next'
+import { Check, RotateCcw, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import axios from 'axios'
 import QuestionForm from './QuestionForm.vue'
 import ConfirmModal from './ConfirmModal.vue'
@@ -96,7 +116,9 @@ const emit = defineEmits(['deleted','updated'])
 const editing = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
+const showSolution = ref(false)
 const activeApproach = ref(0)
+const activeSubTab = ref('logic') // logic, code
 
 const toggleRevision = async () => {
   await axios.put(`/api/questions/${props.question._id}`, { needsRevision: !props.question.needsRevision })
@@ -155,35 +177,48 @@ const doDelete = async () => {
 .link-pill.lc  { background:#fff7e0; color:#f59e0b; border:1px solid #fde68a; }
 .link-pill.gfg { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
 
-.q-notes { font-size:13px; color:var(--text-secondary); line-height:1.6; background:var(--bg-subtle); border-radius:8px; padding:10px 14px; }
+.solved-indicator { background:var(--success); color:white; padding:3px; border-radius:50%; display:flex; margin-top:3px; }
 
-/* Approaches */
-.approaches-wrap { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-.approach-tabs { display:flex; background:var(--bg-subtle); border-bottom:1px solid var(--border); overflow-x:auto; }
-.ap-tab { padding:8px 16px; font-size:12px; font-weight:600; color:var(--text-muted); background:none; border:none; cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s, border-color .15s; }
-.ap-tab:hover { color:var(--text-primary); }
-.ap-tab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--surface); }
+.card-footer-actions { display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px dotted var(--border); }
+.learning-state { display:flex; gap:8px; }
+.state-btn { font-size:11px; font-weight:700; border:1px solid var(--border); background:var(--bg-subtle); color:var(--text-muted); padding:4px 10px; border-radius:6px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:5px; }
+.state-btn:hover { border-color:var(--text-muted); }
+.state-btn.solved.active { background:var(--success-subtle); color:var(--success); border-color:var(--success); }
+.state-btn.revision.active { background:var(--warning-subtle); color:var(--warning); border-color:var(--warning); }
 
-.approach-content { padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
-.complexity-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.complexity-chip { font-size:11.5px; font-weight:600; color:var(--text-secondary); background:var(--bg-subtle); border:1px solid var(--border); border-radius:99px; padding:2px 10px; }
-.lang-chip { font-size:10.5px; font-weight:700; color:var(--accent); background:var(--accent-subtle); border:1px solid var(--accent-border); border-radius:99px; padding:2px 10px; text-transform:uppercase; letter-spacing:.04em; }
+.btn-reveal { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--accent); background:none; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; }
 
-.code-block {
+.solution-reveal { margin-top:10px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-20px; margin-right:-20px; padding:20px; }
+
+.approaches-wrap-fancy { display:flex; flex-direction:column; gap:16px; }
+.ap-nav { display:flex; gap:4px; overflow-x:auto; padding-bottom:4px; }
+.ap-nav-btn { padding:6px 12px; font-size:11px; font-weight:700; color:var(--text-muted); background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; cursor:pointer; white-space:nowrap; }
+.ap-nav-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+
+.sub-tabs { display:flex; gap:12px; margin-bottom:12px; padding:4px; background:var(--surface); border-radius:8px; border:1px solid var(--border); }
+.sub-tab { flex:1; padding:6px; font-size:11.5px; font-weight:700; color:var(--text-muted); background:none; border:none; border-radius:5px; cursor:pointer; transition:all .2s; }
+.sub-tab.active { background:var(--bg-subtle); color:var(--text-primary); box-shadow:var(--shadow-sm); }
+
+.logic-notes { font-size:13px; line-height:1.7; color:var(--text-secondary); white-space:pre-line; }
+
+.code-header { display:flex; justify-content:flex-end; margin-bottom:6px; }
+.lang-tag { font-size:9px; font-weight:800; text-transform:uppercase; color:var(--text-muted); background:var(--bg-subtle); padding:2px 6px; border-radius:4px; border:1px solid var(--border); }
+
+.code-block-fancy {
   background:#0d1117; color:#e6edf3;
-  border-radius:8px; padding:14px 16px;
-  font-size:12.5px; line-height:1.65;
-  font-family:'Fira Code','Cascadia Code','Consolas',monospace;
+  border-radius:10px; padding:18px;
+  font-size:12px; line-height:1.7;
+  font-family:'Fira Code', monospace;
   overflow-x:auto;
-  white-space:pre;
-  margin:0;
+  border:1px solid rgba(255,255,255,0.05);
+  box-shadow:inset 0 0 20px rgba(0,0,0,0.3);
 }
-[data-theme="light"] .code-block { background:#1e2328; }
 
-.ap-notes { font-size:12.5px; color:var(--text-secondary); line-height:1.6; background:var(--bg-subtle); border-radius:7px; padding:9px 12px; }
+.animate-fade { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-.q-tags { display:flex; gap:6px; flex-wrap:wrap; }
-.tag-chip { font-size:11px; font-weight:600; color:var(--text-muted); }
+.q-tags { display:flex; gap:8px; flex-wrap:wrap; }
+.tag-chip { font-size:10px; font-weight:700; color:var(--text-muted); opacity:0.6; }
 
 /* Modal */
 .modal-wrap { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:20px; }
