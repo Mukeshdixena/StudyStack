@@ -325,8 +325,6 @@ const onConceptCreated = () => {
 const saveTopic = async () => {
   await axios.put(`/api/topics/${topicId.value}`, {
     ...editForm,
-    totalQuestions: questions.value.length,
-    totalConcepts: concepts.value.length,
   })
   editingTopic.value = false
   await loadData()

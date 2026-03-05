@@ -3,11 +3,15 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Topic } from './schemas/topic.schema';
 import { StorageService } from '../storage/storage.service';
+import { Question } from '../questions/schemas/question.schema';
+import { Concept } from '../concepts/schemas/concept.schema';
 
 @Injectable()
 export class TopicsService {
     constructor(
         @InjectModel(Topic.name) private topicModel: Model<Topic>,
+        @InjectModel(Question.name) private questionModel: Model<Question>,
+        @InjectModel(Concept.name) private conceptModel: Model<Concept>,
         private readonly storageService: StorageService
     ) { }
 
@@ -56,6 +60,10 @@ export class TopicsService {
             for (const child of children) {
                 await this.remove(child._id.toString());
             }
+        } else {
+            // If it's a topic, remove related questions and concepts
+            await this.questionModel.deleteMany({ topicId: id }).exec();
+            await this.conceptModel.deleteMany({ topicId: id }).exec();
         }
 
         // Delete PDF if exists

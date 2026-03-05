@@ -7,7 +7,6 @@ import { TopicsModule } from './topics/topics.module';
 import { QuestionsModule } from './questions/questions.module';
 import { ConceptsModule } from './concepts/concepts.module';
 import { AiModule } from './ai/ai.module';
-import { NotesModule } from './notes/notes.module';
 import { StorageModule } from './storage/storage.module';
 
 @Module({
@@ -24,7 +23,6 @@ import { StorageModule } from './storage/storage.module';
     QuestionsModule,
     ConceptsModule,
     AiModule,
-    NotesModule,
     StorageModule,
   ],
   controllers: [AppController],

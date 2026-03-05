@@ -164,12 +164,6 @@ const save = async () => {
       await axios.put(`/api/questions/${props.initial._id}`, payload)
     } else {
       await axios.post('/api/questions', payload)
-      // Update topic question count
-      try {
-        const tRes = await axios.get(`/api/topics/${props.topicId}`)
-        const qRes = await axios.get(`/api/questions/by-topic/${props.topicId}`)
-        await axios.put(`/api/topics/${props.topicId}`, { totalQuestions: qRes.data.length, name: tRes.data.name })
-      } catch (_) {}
     }
     emit('saved')
   } finally { saving.value = false }
