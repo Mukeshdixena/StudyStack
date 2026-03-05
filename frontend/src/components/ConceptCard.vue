@@ -106,7 +106,8 @@ const cancelEdit = () => {
 }
 
 const autoResize = (e) => {
-  const el = e.target
+  const el = e?.target || e
+  if (!el || !el.style) return
   el.style.height = 'auto'
   el.style.height = el.scrollHeight + 'px'
 }

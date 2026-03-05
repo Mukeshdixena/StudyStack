@@ -197,7 +197,9 @@ const startEdit = (note) => {
     keyPoints: note.keyPoints || ''
   })
   nextTick(() => {
-    if (textInput.value) autoResize({ target: textInput.value })
+    // If ref is in v-for, it becomes an array.
+    const el = Array.isArray(textInput.value) ? textInput.value[0] : textInput.value
+    if (el) autoResize({ target: el })
   })
 }
 
@@ -248,7 +250,8 @@ const globalNewNote = async () => {
 }
 
 const autoResize = (e) => {
-  const el = e.target
+  const el = e?.target || e
+  if (!el || !el.style) return
   el.style.height = 'auto'
   el.style.height = el.scrollHeight + 'px'
 }
