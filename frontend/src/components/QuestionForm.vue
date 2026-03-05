@@ -120,7 +120,7 @@
           </div>
           <div class="field-group">
             <label class="field-label">Code</label>
-            <textarea v-model="ap.code" class="field-input code-ta" rows="8" spellcheck="false" placeholder="Paste your code here..."></textarea>
+            <textarea v-model="ap.code" class="field-input code-ta" rows="6" spellcheck="false" placeholder="Paste your code here..."></textarea>
           </div>
           <div class="field-group">
             <label class="field-label">Approach Notes</label>
@@ -240,10 +240,10 @@ const save = async () => {
 .ai-tip { font-size:12px; color:var(--text-muted); margin-bottom:12px; }
 .smart-ta { background:var(--bg-subtle); border-style:dashed; border-width:2px; }
 
-.qform { display:flex; flex-direction:column; gap:18px; }
+.qform { display:flex; flex-direction:column; gap:12px; }
 .qform-row3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:14px; }
 .qform-row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.field-group { display:flex; flex-direction:column; gap:6px; }
+.field-group { display:flex; flex-direction:column; gap:4px; }
 .flex-2 { grid-column:span 2; }
 .req { color:var(--danger); }
 .opt { font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:10px; }
@@ -257,7 +257,7 @@ const save = async () => {
 .approaches-section { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
 .approaches-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-subtle); border-bottom:1px solid var(--border); }
 .sm-btn { padding:4px 10px; font-size:12px; }
-.approach-block { padding:16px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:12px; }
+.approach-block { padding:12px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
 .approach-block:last-child { border-bottom:none; }
 .ap-block-header { display:flex; align-items:center; justify-content:space-between; }
 .ap-num { font-size:12px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.08em; }

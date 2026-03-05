@@ -182,7 +182,9 @@
                <h2>Add Practice Question</h2>
                <button class="btn-icon-ghost" @click="showAddQuestion = false"><X :size="16" /></button>
              </div>
-             <QuestionForm :topicId="topicId" @saved="showAddQuestion = false; loadData()" />
+             <div class="modal-body">
+               <QuestionForm :topicId="topicId" @saved="showAddQuestion = false; loadData()" />
+             </div>
           </div>
        </div>
     </Teleport>
@@ -866,9 +868,25 @@ watch(topicId, loadData, { immediate: true })
 .btn-icon-sm:hover { background: var(--border); color: var(--text-primary); }
 
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000;
+  padding: 20px;
 }
-.modal-content { background: var(--surface); border-radius: 16px; padding: 24px; width: 100%; max-width: 800px; }
+.modal-content {
+  background: var(--surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+}
+.modal-body {
+  overflow-y: auto;
+  padding: 24px;
+  flex: 1;
+}
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -911,7 +929,9 @@ watch(topicId, loadData, { immediate: true })
 /* Edit Meta Form */
 .modal-header-simple {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
 }
 .modal-header-simple h2 { font-size: 18px; font-weight: 700; margin: 0; }
 

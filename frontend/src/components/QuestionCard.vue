@@ -76,32 +76,33 @@
     <div v-if="question.tags && question.tags.length" class="q-tags mt-2">
       <span v-for="tag in question.tags" :key="tag" class="tag-chip">#{{ tag }}</span>
     </div>
-  </div>
 
-  <!-- ── Edit Modal ── -->
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="editing" class="modal-wrap" @click.self="editing = false">
-        <div class="modal-overlay" @click="editing = false"></div>
-        <div class="modal-box" style="max-width:820px">
-          <div class="modal-header">
-            <div><h2 class="modal-title">Edit Question</h2></div>
-            <button class="btn-ghost icon-btn" @click="editing = false"><X :size="18" /></button>
+    <!-- ── Edit Modal ── -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="editing" class="modal-wrap" @click.self="editing = false">
+          <div class="modal-overlay" @click="editing = false"></div>
+          <div class="modal-box" style="max-width:820px">
+            <div class="modal-header">
+              <h2 class="modal-title">Edit Question</h2>
+              <button class="btn-ghost icon-btn" @click="editing = false"><X :size="18" /></button>
+            </div>
+            <div class="modal-scroll-area">
+              <QuestionForm :topicId="question.topicId" :initial="question" @saved="editing = false; emit('updated')" />
+            </div>
           </div>
-          <QuestionForm :topicId="question.topicId" :initial="question" @saved="editing = false; emit('updated')" />
         </div>
-      </div>
-    </Transition>
-  </Teleport>
-
-  <ConfirmModal 
-    :show="showDeleteConfirm"
-    :title="question.title"
-    :isFolder="false"
-    :loading="deleting"
-    @confirm="doDelete"
-    @cancel="showDeleteConfirm = false"
-  />
+      </Transition>
+    </Teleport>
+    <ConfirmModal 
+      :show="showDeleteConfirm"
+      :title="question.title"
+      :isFolder="false"
+      :loading="deleting"
+      @confirm="doDelete"
+      @cancel="showDeleteConfirm = false"
+    />
+  </div>
 </template>
 
 <script setup>
@@ -223,9 +224,10 @@ const doDelete = async () => {
 /* Modal */
 .modal-wrap { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:20px; }
 .modal-overlay { position:absolute; inset:0; background:rgba(5,7,18,.55); backdrop-filter:blur(6px); }
-.modal-box { position:relative; z-index:1; width:100%; background:var(--surface-raised); border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:var(--shadow-xl); max-height:92vh; overflow-y:auto; }
-.modal-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:22px; padding-bottom:16px; border-bottom:1px solid var(--border); }
-.modal-title { font-size:18px; font-weight:700; color:var(--text-primary); }
+.modal-box { position:relative; z-index:1; width:100%; background:var(--surface-raised); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow-xl); max-height:90vh; display:flex; flex-direction:column; overflow:hidden; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--border); background:var(--surface-raised); z-index:2; flex-shrink:0; }
+.modal-title { font-size:18px; font-weight:700; color:var(--text-primary); margin:0; }
+.modal-scroll-area { overflow-y:auto; padding:24px; flex:1; }
 .icon-btn { padding:6px; border-radius:8px; }
 .modal-enter-active,.modal-leave-active { transition:opacity .2s; }
 .modal-enter-from,.modal-leave-to { opacity:0; }
