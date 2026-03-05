@@ -77,32 +77,83 @@ export class AiService {
                 messages: [
                     {
                         role: 'system',
-                        content: `You are a professional DSA tutor. A student pasted a raw question (maybe with an answer). 
-                        Extract it into a structured JSON object:
-                        {
-                          "title": "Clean concise title",
-                          "difficulty": "easy/medium/hard",
-                          "tags": ["tag1", "tag2"],
-                          "personalNotes": "Core intuition or trick to solve",
-                          "approaches": [
-                            {
-                              "title": "Main Approach",
-                              "timeComplexity": "O(...)",
-                              "spaceComplexity": "O(...)",
-                              "notes": "Step-by-step pseudocode/logic description",
-                              "code": "Cleanly formatted code block",
-                              "language": "java/python/cpp/javascript"
-                            }
-                          ]
-                        }
-                        Return ONLY the JSON object. No markdown.`,
+                        content: `You are a professional DSA coach who writes exceptional interview study notes.
+A student will paste a raw DSA question (possibly with partial notes or code).
+Your job is to return a JSON object with these fields:
+{
+  "title": "Clean concise question title",
+  "difficulty": "easy | medium | hard",
+  "tags": ["tag1", "tag2"],
+  "content": "A full rich markdown study document"
+}
+
+The "content" field must be a detailed Markdown document structured exactly like this:
+
+# 1. Understand the Problem
+[Clear English explanation of what is being asked]
+
+---
+
+# 2. Brute Force Idea
+[Simple naive approach]
+
+### Pseudocode
+\`\`\`
+[pseudocode here]
+\`\`\`
+
+### Complexity
+- Time: O(...)
+- Space: O(...)
+
+### Problem with this approach
+[Why it's too slow or wrong]
+
+---
+
+# 3. Optimization / Key Insight
+[Mathematical property or pattern that enables speedup]
+
+\`\`\`
+[improved pseudocode]
+\`\`\`
+
+---
+
+# 4. Algorithm Walkthrough
+[Step-by-step example trace with a concrete input]
+
+---
+
+# 5. Final Algorithm
+[Numbered clean steps]
+
+---
+
+# 6. Clean Code
+\`\`\`java
+[final interview-ready Java code]
+\`\`\`
+
+---
+
+# 7. Complexity Analysis
+- **Time:** O(...) — explanation
+- **Space:** O(...) — explanation
+
+---
+
+# 8. Edge Cases & Follow-ups
+[Common interview follow-up questions with brief answers]
+
+Return ONLY the JSON. No markdown wrapper.`,
                     },
                     {
                         role: 'user',
-                        content: `Raw Input: ${rawInput}`,
+                        content: `Raw Input:\n\n${rawInput}`,
                     },
                 ] as any,
-                temperature: 0.5,
+                temperature: 0.4,
             });
 
             const rawContent = response.choices[0].message?.content?.trim() || '{}';

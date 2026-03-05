@@ -1,15 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export class Approach {
-    title: string;   // e.g. "Approach 1: Brute Force"
-    code: string;    // actual code
-    language: string; // js, python, java, cpp etc.
-    timeComplexity: string;
-    spaceComplexity: string;
-    notes: string;
-}
-
 @Schema({ timestamps: true })
 export class Question extends Document {
     @Prop({ type: Types.ObjectId, ref: 'Topic', required: true })
@@ -22,7 +13,7 @@ export class Question extends Document {
     difficulty: string;
 
     @Prop({ default: false })
-    needsRevision: boolean;   // ← the "hard / revise this" flag
+    needsRevision: boolean;
 
     @Prop({ default: false })
     isSolved: boolean;
@@ -33,11 +24,8 @@ export class Question extends Document {
     @Prop()
     gfgLink: string;
 
-    @Prop()
-    personalNotes: string;
-
-    @Prop({ type: [Object], default: [] })
-    approaches: Approach[];   // [{title, code, language, timeComplexity, spaceComplexity, notes}]
+    @Prop({ default: '' })
+    content: string;  // Single rich Markdown document: problem understanding, logic, pseudocode, code, complexity
 
     @Prop({ type: [String], default: [] })
     tags: string[];

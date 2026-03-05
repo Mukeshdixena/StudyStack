@@ -2,40 +2,47 @@
   <div class="qform-container">
     <!-- ── Mode Selector ── -->
     <div class="mode-selector">
-      <button type="button" class="mode-tab" :class="{ active: mode === 'manual' }" @click="mode = 'manual'">Manual Entry</button>
-      <button type="button" class="mode-tab" :class="{ active: mode === 'ai' }" @click="mode = 'ai'">
-        <Sparkles :size="14" class="text-accent" /> AI Smart Mode
+      <button type="button" class="mode-tab" :class="{ active: mode === 'manual' }" @click="mode = 'manual'">
+        Manual Entry
+      </button>
+      <button type="button" class="mode-tab ai-tab" :class="{ active: mode === 'ai' }" @click="mode = 'ai'">
+        <Sparkles :size="14" /> AI Smart Mode
       </button>
     </div>
 
     <!-- ── AI Smart Input ── -->
-    <div v-if="mode === 'ai'" class="ai-smart-input">
-      <p class="ai-tip">Paste the raw question, your code, or a GFG/LeetCode snippet below. AI will structure it for you.</p>
-      <textarea 
-        v-model="rawInput" 
-        class="field-input smart-ta" 
-        rows="10" 
-        placeholder="e.g. Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target..."
+    <div v-if="mode === 'ai'" class="ai-smart-panel">
+      <div class="ai-banner">
+        <Sparkles :size="18" />
+        <span>Paste the raw question (with or without code/solution). AI will write a full study note for you.</span>
+      </div>
+      <textarea
+        v-model="rawInput"
+        class="field-input smart-ta"
+        rows="9"
+        placeholder="e.g. Implement pow(A, B) % C...  
+Or paste a LeetCode problem. Or paste your messy notes + code.
+The AI will structure everything into a complete DSA study document."
       ></textarea>
-      <button 
-        type="button" 
-        class="btn-primary w-full mt-4" 
-        :disabled="!rawInput || refining"
+      <button
+        type="button"
+        class="btn-ai"
+        :disabled="!rawInput.trim() || refining"
         @click="refineWithAI"
       >
-        <Sparkles v-if="!refining" :size="16" />
-        <span v-else class="spinner"></span>
-        {{ refining ? 'Analyzing & Structuring...' : 'AI Magic Refine' }}
+        <span v-if="refining" class="spinner"></span>
+        <Sparkles v-else :size="16" />
+        {{ refining ? 'Generating Study Note...' : 'Generate Full Study Note' }}
       </button>
     </div>
 
-    <!-- ── Manual Form (Always shown if in manual mode or after AI refine) ── -->
-    <form v-if="mode === 'manual' || isPopulated" @submit.prevent="save" class="qform mt-6">
-      <!-- Row 1: Title, difficulty, solved -->
-      <div class="qform-row3">
-        <div class="field-group flex-2">
+    <!-- ── Manual Form ── -->
+    <form v-if="mode === 'manual' || isPopulated" @submit.prevent="save" class="qform">
+      <!-- Row 1: Title + Difficulty -->
+      <div class="qform-row">
+        <div class="field-group flex-3">
           <label class="field-label">Question Title <span class="req">*</span></label>
-          <input v-model="form.title" class="field-input" placeholder="Two Sum, Sliding Window Maximum..." required />
+          <input v-model="form.title" class="field-input" placeholder="e.g. Implement pow(A, B) % C" required />
         </div>
         <div class="field-group">
           <label class="field-label">Difficulty</label>
@@ -45,21 +52,10 @@
             <option value="hard">Hard</option>
           </select>
         </div>
-        <div class="field-group center-items">
-          <label class="field-label">Status</label>
-          <div class="toggle-row">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="form.isSolved" class="checkbox" /> Solved
-            </label>
-            <label class="toggle-label warn-txt">
-              <input type="checkbox" v-model="form.needsRevision" class="checkbox" /> Needs Revision
-            </label>
-          </div>
-        </div>
       </div>
 
-      <!-- Row 2: Links -->
-      <div class="qform-row2">
+      <!-- Row 2: Links + Tags -->
+      <div class="qform-row">
         <div class="field-group">
           <label class="field-label">LeetCode Link</label>
           <input v-model="form.leetcodeLink" class="field-input" placeholder="https://leetcode.com/problems/..." />
@@ -68,65 +64,30 @@
           <label class="field-label">GFG Link</label>
           <input v-model="form.gfgLink" class="field-input" placeholder="https://www.geeksforgeeks.org/..." />
         </div>
-      </div>
-
-      <!-- Row 3: Personal Notes & Tags -->
-      <div class="qform-row2">
-        <div class="field-group">
-          <label class="field-label">Personal Notes / Observations</label>
-          <textarea v-model="form.personalNotes" class="field-input" rows="2" style="resize:vertical" placeholder="What I found hard, common mistakes..."></textarea>
-        </div>
         <div class="field-group">
           <label class="field-label">Tags <span class="opt">(comma separated)</span></label>
-          <input v-model="tagsRaw" class="field-input" placeholder="two-pointer, hash-map, sliding-window..." />
+          <input v-model="tagsRaw" class="field-input" placeholder="binary-search, dp, greedy..." />
         </div>
       </div>
 
-      <!-- ── Approaches ── -->
-      <div class="approaches-section">
-        <div class="approaches-header">
-          <span class="field-label" style="margin:0">Code Approaches</span>
-          <button type="button" class="btn-ghost sm-btn" @click="addApproach"><Plus :size="13" /> Add Approach</button>
-        </div>
-
-        <div v-for="(ap, i) in form.approaches" :key="i" class="approach-block">
-          <div class="ap-block-header">
-            <span class="ap-num">Approach {{ i + 1 }}</span>
-            <button type="button" class="remove-btn" @click="removeApproach(i)" v-if="form.approaches.length > 1"><X :size="13" /></button>
-          </div>
-          <div class="ap-fields">
-            <div class="field-group flex-2">
-              <label class="field-label">Title</label>
-              <input v-model="ap.title" class="field-input" :placeholder="`e.g. Brute Force, Sliding Window, DP`" />
-            </div>
-            <div class="field-group">
-              <label class="field-label">Language</label>
-              <select v-model="ap.language" class="field-input">
-                <option value="java">Java</option>
-                <option value="python">Python</option>
-                <option value="cpp">C++</option>
-                <option value="javascript">JavaScript</option>
-                <option value="go">Go</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Time Complexity</label>
-              <input v-model="ap.timeComplexity" class="field-input" placeholder="O(n), O(n log n)..." />
-            </div>
-            <div class="field-group">
-              <label class="field-label">Space Complexity</label>
-              <input v-model="ap.spaceComplexity" class="field-input" placeholder="O(1), O(n)..." />
-            </div>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Code</label>
-            <textarea v-model="ap.code" class="field-input code-ta" rows="6" spellcheck="false" placeholder="Paste your code here..."></textarea>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Approach Notes</label>
-            <textarea v-model="ap.notes" class="field-input" rows="2" style="resize:vertical" placeholder="Key idea, why this approach, trade-offs..."></textarea>
+      <!-- Main Content: Markdown Editor -->
+      <div class="field-group">
+        <div class="content-header">
+          <label class="field-label" style="margin:0">Study Note Content <span class="opt">(Markdown supported)</span></label>
+          <div class="content-hints">
+            <span class="hint-chip"># Heading</span>
+            <span class="hint-chip">```code```</span>
+            <span class="hint-chip">**bold**</span>
+            <span class="hint-chip">- list</span>
           </div>
         </div>
+        <textarea
+          v-model="form.content"
+          class="field-input content-ta"
+          rows="18"
+          spellcheck="false"
+          placeholder="# 1. Understand the Problem&#10;...&#10;&#10;# 2. Brute Force&#10;...&#10;&#10;# 3. Optimized Approach&#10;...&#10;&#10;# 4. Code&#10;```java&#10;// your code&#10;```"
+        ></textarea>
       </div>
 
       <!-- Footer -->
@@ -143,7 +104,7 @@
 
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { Plus, X, Sparkles } from 'lucide-vue-next'
+import { Sparkles } from 'lucide-vue-next'
 import axios from 'axios'
 
 const props = defineProps(['topicId', 'initial'])
@@ -155,8 +116,6 @@ const isPopulated = ref(!!props.initial)
 const rawInput = ref('')
 const tagsRaw = ref('')
 
-const emptyApproach = () => ({ title: '', code: '', language: 'java', timeComplexity: '', spaceComplexity: '', notes: '' })
-
 const form = reactive({
   title: '',
   difficulty: 'medium',
@@ -164,9 +123,7 @@ const form = reactive({
   needsRevision: false,
   leetcodeLink: '',
   gfgLink: '',
-  personalNotes: '',
-  approaches: [emptyApproach()],
-  tags: [],
+  content: '',
 })
 
 // Populate if editing
@@ -179,17 +136,13 @@ watch(() => props.initial, (init) => {
     needsRevision: init.needsRevision || false,
     leetcodeLink: init.leetcodeLink || '',
     gfgLink: init.gfgLink || '',
-    personalNotes: init.personalNotes || '',
-    approaches: init.approaches?.length ? init.approaches.map(a => ({ ...a })) : [emptyApproach()],
+    content: init.content || '',
   })
   tagsRaw.value = (init.tags || []).join(', ')
 }, { immediate: true })
 
-const addApproach = () => form.approaches.push(emptyApproach())
-const removeApproach = (i) => form.approaches.splice(i, 1)
-
 const refineWithAI = async () => {
-  if (!rawInput.value) return
+  if (!rawInput.value.trim()) return
   refining.value = true
   try {
     const res = await axios.post('/api/ai/refine-question', { rawInput: rawInput.value })
@@ -198,8 +151,7 @@ const refineWithAI = async () => {
       Object.assign(form, {
         title: data.title || '',
         difficulty: data.difficulty || 'medium',
-        personalNotes: data.personalNotes || '',
-        approaches: data.approaches?.length ? data.approaches : [emptyApproach()]
+        content: data.content || '',
       })
       tagsRaw.value = (data.tags || []).join(', ')
       isPopulated.value = true
@@ -207,6 +159,7 @@ const refineWithAI = async () => {
     }
   } catch (e) {
     console.error('AI Refine failed:', e)
+    alert('AI generation failed. Please try again.')
   } finally {
     refining.value = false
   }
@@ -226,55 +179,56 @@ const save = async () => {
       await axios.post('/api/questions', payload)
     }
     emit('saved')
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
 <style scoped>
-.qform-container { width:100%; }
-.mode-selector { display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px; }
-.mode-tab { padding:8px 16px; font-size:13px; font-weight:600; color:var(--text-muted); background:none; border:none; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all .2s; }
-.mode-tab:hover { color:var(--text-primary); background:var(--bg-subtle); }
-.mode-tab.active { background:var(--accent-subtle); color:var(--accent); }
+.qform-container { width: 100%; }
 
-.ai-tip { font-size:12px; color:var(--text-muted); margin-bottom:12px; }
-.smart-ta { background:var(--bg-subtle); border-style:dashed; border-width:2px; }
+/* Mode Tabs */
+.mode-selector { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+.mode-tab { padding: 7px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 1px solid transparent; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: all .2s; }
+.mode-tab:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.mode-tab.active { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border); }
 
-.qform { display:flex; flex-direction:column; gap:12px; }
-.qform-row3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:14px; }
-.qform-row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.field-group { display:flex; flex-direction:column; gap:4px; }
-.flex-2 { grid-column:span 2; }
-.req { color:var(--danger); }
-.opt { font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:10px; }
-.center-items { justify-content:flex-end; }
-.toggle-row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-.toggle-label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:var(--text-secondary); cursor:pointer; }
-.toggle-label.warn-txt { color:var(--warning); }
-.checkbox { width:14px; height:14px; cursor:pointer; accent-color:var(--accent); }
+/* AI Panel */
+.ai-smart-panel { display: flex; flex-direction: column; gap: 14px; }
+.ai-banner { display: flex; align-items: center; gap: 10px; background: var(--accent-subtle); border: 1px solid var(--accent-border); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--accent); font-weight: 500; }
+.smart-ta { background: var(--bg-subtle) !important; border-style: dashed !important; border-width: 2px !important; font-family: inherit; line-height: 1.6; resize: vertical; min-height: 180px; }
+.btn-ai { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 13px; font-size: 14px; font-weight: 700; color: white; background: linear-gradient(135deg, var(--accent), #7c3aed); border: none; border-radius: 10px; cursor: pointer; transition: all .25s; }
+.btn-ai:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(var(--accent-rgb, 79 70 229), 0.35); }
+.btn-ai:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-/* Approaches section */
-.approaches-section { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-.approaches-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-subtle); border-bottom:1px solid var(--border); }
-.sm-btn { padding:4px 10px; font-size:12px; }
-.approach-block { padding:12px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
-.approach-block:last-child { border-bottom:none; }
-.ap-block-header { display:flex; align-items:center; justify-content:space-between; }
-.ap-num { font-size:12px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.08em; }
-.remove-btn { padding:4px 6px; border-radius:6px; background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; transition:all .15s; }
-.remove-btn:hover { background:#fee2e2; color:#dc2626; }
-.ap-fields { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:12px; }
-.code-ta {
-  font-family:'Fira Code','Cascadia Code','Consolas',monospace;
-  font-size:12.5px; line-height:1.7;
-  background:#0d1117; color:#e6edf3;
-  border-color:#30363d;
-  resize:vertical;
+/* Manual Form */
+.qform { display: flex; flex-direction: column; gap: 14px; }
+.qform-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.flex-3 { grid-column: span 2; }
+.field-group { display: flex; flex-direction: column; gap: 5px; }
+
+.content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.content-hints { display: flex; gap: 6px; flex-wrap: wrap; }
+.hint-chip { font-size: 10px; font-weight: 600; color: var(--text-muted); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: monospace; }
+
+.content-ta {
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  background: #0d1117 !important;
+  color: #e6edf3 !important;
+  border-color: #30363d !important;
+  resize: vertical;
+  min-height: 240px;
 }
-.code-ta:focus { border-color:#388bfd; }
-[data-theme="light"] .code-ta { background:#1e2328; color:#e6edf3; }
+.content-ta:focus { border-color: #388bfd !important; }
 
-.form-footer { display:flex; justify-content:flex-end; gap:10px; padding-top:16px; border-top:1px solid var(--border); margin-top:4px; }
-.spinner { width:13px; height:13px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; display:inline-block; }
-@keyframes spin { to { transform:rotate(360deg); } }
+.field-label { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.req { color: var(--danger); }
+.opt { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-muted); font-size: 10px; }
+
+.form-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); margin-top: 4px; }
+.spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
