@@ -77,4 +77,27 @@ export class TopicsService {
 
         return this.topicModel.findByIdAndDelete(id).exec();
     }
+
+    async removePdf(id: string): Promise<Topic> {
+        const topic = await this.findOne(id);
+        if (topic.pdfKey) {
+            await this.storageService.deleteFile(topic.pdfKey);
+        }
+        return this.update(id, { pdfUrl: null, pdfKey: null });
+    }
+
+    async move(id: string, parentId: string): Promise<Topic> {
+        return this.update(id, { parentId: parentId || null });
+    }
+
+    async search(query: string): Promise<any> {
+        const regex = new RegExp(query, 'i');
+        const [topics, questions, concepts] = await Promise.all([
+            this.topicModel.find({ name: regex, isFolder: false }).limit(10).exec(),
+            this.questionModel.find({ text: regex }).populate('topicId', 'name').limit(10).exec(),
+            this.conceptModel.find({ explanation: regex }).populate('topicId', 'name').limit(10).exec(),
+        ]);
+
+        return { topics, questions, concepts };
+    }
 }

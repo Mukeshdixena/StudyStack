@@ -15,6 +15,9 @@ export class Topic extends Document {
     @Prop({ default: '' })
     theoryContent: string; // The detailed study document (The Big Note)
 
+    @Prop({ default: '' })
+    snippetsContent: string; // The cohesive "Golden Bits" document
+
     @Prop({ default: 0 })
     totalQuestions: number;
 

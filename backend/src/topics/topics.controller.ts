@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseInterceptors, UploadedFile, Query } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TopicsService } from './topics.service';
 import { StorageService } from '../storage/storage.service';
@@ -33,5 +33,20 @@ export class TopicsController {
     ) {
         const { url, key } = await this.storageService.uploadFile(file);
         return this.topicsService.updatePdf(id, url, key);
+    }
+
+    @Delete(':id/pdf')
+    removePdf(@Param('id') id: string) {
+        return this.topicsService.removePdf(id);
+    }
+
+    @Put(':id/move')
+    move(@Param('id') id: string, @Body('parentId') parentId: string) {
+        return this.topicsService.move(id, parentId);
+    }
+
+    @Get('search/find')
+    search(@Query('q') q: string) {
+        return this.topicsService.search(q);
     }
 }

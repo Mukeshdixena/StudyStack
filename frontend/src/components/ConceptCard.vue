@@ -1,7 +1,5 @@
 <template>
   <div class="snippet-card" :class="{ 'is-editing': isEditing }">
-    <div class="card-tag"><Zap :size="10" /> IMPORTANT SNIPPET</div>
-    
     <div class="card-controls">
       <button class="icon-btn" @click="toggleEdit" title="Edit"><Pencil :size="12" /></button>
       <button class="icon-btn danger" @click="showDeleteConfirm = true" title="Delete"><Trash2 :size="12" /></button>

@@ -27,7 +27,7 @@ export class AiService {
                         role: 'user',
                         content: `Topic: ${title}\nContent: ${content}`,
                     },
-                ] as any, // Bypass strict type check for now if necessary
+                ] as any,
                 temperature: 0.7,
             });
 
@@ -35,6 +35,34 @@ export class AiService {
         } catch (error) {
             console.error('AI Extraction Error:', error);
             return 'Failed to extract insights.';
+        }
+    }
+
+    async generateQuestions(content: string): Promise<any[]> {
+        try {
+            const model = this.configService.get<string>('AI_MODEL') || 'google/gemini-2.0-flash-lite-preview-02-05:free';
+            const response = await this.openai.chat.completions.create({
+                model,
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a technical interviewer. Given a study note, generate 3-5 high-quality practice questions. Return ONLY a JSON array of objects with "text" and "answer" properties. No markdown formatting.',
+                    },
+                    {
+                        role: 'user',
+                        content: `Content: ${content}`,
+                    },
+                ] as any,
+                temperature: 0.8,
+            });
+
+            const rawContent = response.choices[0].message?.content?.trim() || '[]';
+            // Clean markdown if AI included it
+            const cleaned = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(cleaned);
+        } catch (error) {
+            console.error('AI Question Generation Error:', error);
+            return [];
         }
     }
 }

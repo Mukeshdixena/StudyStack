@@ -61,10 +61,6 @@
               <button @click="editor.chain().focus().toggleCode().run()" :class="{ 'is-active': editor.isActive('code') }">
                 <code>&lt;/&gt;</code>
               </button>
-              <div class="divider"></div>
-              <button class="pin-btn" @click="addToHighlightsSelection">
-                <Zap :size="12" /> Pin
-              </button>
             </div>
 
             <!-- Editor Toolbar (Shown only when editing) -->
@@ -118,7 +114,13 @@
         <div v-if="activeTab === 'questions'" class="questions-tab">
            <div class="tab-header">
               <h2>Practice Questions</h2>
-              <button class="btn-primary-sm" @click="showAddQuestion = true"><Plus :size="14" /> Add Question</button>
+              <div class="flex gap-2">
+                 <button class="btn-ghost-sm" @click="generateAiQuestions" :disabled="isGeneratingAiQuestions || !topic.theoryContent">
+                    <Sparkles :size="14" class="text-accent" />
+                    {{ isGeneratingAiQuestions ? 'AI Generating...' : 'Generate via AI' }}
+                 </button>
+                 <button class="btn-primary-sm" @click="showAddQuestion = true"><Plus :size="14" /> Add Question</button>
+              </div>
            </div>
            <div class="questions-grid">
               <QuestionCard v-for="q in questions" :key="q._id" :question="q" @deleted="loadData" @updated="loadData" />
@@ -159,27 +161,15 @@
             <Zap :size="14" class="text-accent" />
             <h3>Important Snippets</h3>
           </div>
-          <button class="btn-icon-ghost sm" @click="isCreatingSnippet = true" title="Add Snippet Manually"><Plus :size="14" /></button>
+          <div class="status-indicator sm" :class="{ saving: snippetSavingStatus === 'saving' }">
+            <span v-if="snippetSavingStatus === 'saving'">Saving...</span>
+            <span v-else-if="snippetSavingStatus === 'saved'" class="text-success"><Check :size="10" /></span>
+          </div>
         </div>
         <div class="sidebar-scroll">
-          <div v-if="isCreatingSnippet" class="mb-4">
-             <ConceptCard 
-                :concept="{ topicId: topicId, explanation: '' }"
-                :isNew="true"
-                @updated="onSnippetCreated"
-                @cancel-new="isCreatingSnippet = false"
-             />
+          <div class="snippets-editor-container">
+            <editor-content :editor="snippetsEditor" />
           </div>
-          <div v-if="!concepts.length" class="sidebar-empty">
-            Highlight text in the theory notes to pin important points here.
-          </div>
-          <ConceptCard 
-            v-for="c in concepts" 
-            :key="c._id" 
-            :concept="c" 
-            @deleted="loadData"
-            @updated="loadData"
-          />
         </div>
       </aside>
     </div>
@@ -240,12 +230,11 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, RouterLink, useRouter } from 'vue-router'
-import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, Code, ExternalLink, Download } from 'lucide-vue-next'
+import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, Code, ExternalLink, Download, Sparkles } from 'lucide-vue-next'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import axios from 'axios'
-import ConceptCard  from '../components/ConceptCard.vue'
 import QuestionCard from '../components/QuestionCard.vue'
 import QuestionForm from '../components/QuestionForm.vue'
 import ConfirmModal  from '../components/ConfirmModal.vue'
@@ -257,11 +246,10 @@ const emit = defineEmits(['refresh-topics'])
 
 const topic = ref(null)
 const questions = ref([])
-const concepts = ref([])
 const activeTab = ref('theory')
 const isEditingTheory = ref(false)
 const showAddQuestion = ref(false)
-const isCreatingSnippet = ref(false)
+const isGeneratingAiQuestions = ref(false)
 const showSidebar = ref(true)
 const sidebarWidth = ref(360)
 const isResizing = ref(false)
@@ -271,7 +259,9 @@ const editingTopic = ref(false)
 const showDeleteConfirm = ref(false)
 
 const savingStatus = ref('idle') // idle, saving, saved
+const snippetSavingStatus = ref('idle') // idle, saving, saved
 let saveTimeout = null
+let snippetSaveTimeout = null
 
 const editForm = reactive({ name: '', description: '', keyInsights: '' })
 const selection = reactive({ show: false, x: 0, y: 0, text: '' })
@@ -292,19 +282,34 @@ const editor = useEditor({
   content: '',
   extensions: [
     StarterKit,
-    Placeholder.configure({
-      placeholder: 'Type / for commands, or just start writing your theory...',
-    }),
+    Placeholder.configure({ placeholder: 'Start typing your theory notes... (Type / for commands)' }),
   ],
-  onUpdate: ({ editor }) => {
-    if (isEditingTheory.value) {
-      debouncedSave()
-      handleSlashCommand(editor)
-    }
+  onUpdate: ({ editor: ed }) => {
+    handleSlashCommand(ed)
+    debouncedSave()
   },
-  onSelectionUpdate: () => {
-    handleSelection()
-  },
+  onSelectionUpdate: () => handleSelection(),
+  onFocus: () => { selection.show = false },
+  onBlur:  () => { slashMenu.show = false }
+})
+
+const snippetsEditor = useEditor({
+  editable: true,
+  content: '',
+  extensions: [
+    StarterKit,
+    Placeholder.configure({ placeholder: 'Capture key insights here...' }),
+  ],
+  onUpdate: () => {
+    debouncedSnippetsSave()
+  }
+})
+
+// Lifecycle hooks
+onMounted(() => loadData())
+onBeforeUnmount(() => {
+  editor.value.destroy()
+  snippetsEditor.value.destroy()
 })
 
 const debouncedSave = () => {
@@ -330,31 +335,54 @@ const saveTheoryContent = async () => {
   }
 }
 
-onBeforeUnmount(() => {
-  editor.value.destroy()
-})
+const debouncedSnippetsSave = () => {
+  snippetSavingStatus.value = 'saving'
+  if (snippetSaveTimeout) clearTimeout(snippetSaveTimeout)
+  snippetSaveTimeout = setTimeout(saveSnippetsContent, 1500)
+}
+
+const saveSnippetsContent = async () => {
+  if (!snippetsEditor.value) return
+  const html = snippetsEditor.value.getHTML()
+  try {
+    await axios.put(`/api/topics/${topicId.value}`, {
+      snippetsContent: html,
+      name: topic.value.name
+    })
+    topic.value.snippetsContent = html
+    snippetSavingStatus.value = 'saved'
+    setTimeout(() => { if (snippetSavingStatus.value === 'saved') snippetSavingStatus.value = 'idle' }, 3000)
+  } catch (e) {
+    console.error(e)
+    snippetSavingStatus.value = 'idle'
+  }
+}
 
 const loadData = async () => {
   try {
-    const [tRes, qRes, cRes] = await Promise.all([
-      axios.get(`/api/topics/${topicId.value}`),
-      axios.get(`/api/questions/by-topic/${topicId.value}`),
-      axios.get(`/api/concepts/by-topic/${topicId.value}`)
-    ])
-    topic.value = tRes.data
-    questions.value = qRes.data
-    concepts.value = cRes.data
-    
-    if (editor.value) {
+    const res = await axios.get(`/api/topics/${topicId.value}`)
+    topic.value = res.data
+    editForm.name = topic.value.name
+    editForm.description = topic.value.description
+    editForm.keyInsights = topic.value.keyInsights
+
+    // Sync editors
+    if (editor.value && !editor.value.isFocused) {
       editor.value.commands.setContent(topic.value.theoryContent || '')
+    }
+    if (snippetsEditor.value && !snippetsEditor.value.isFocused) {
+      snippetsEditor.value.commands.setContent(topic.value.snippetsContent || '')
     }
 
     Object.assign(editForm, {
       name: topic.value.name,
-      description: topic.value.description || '',
-      keyInsights: topic.value.keyInsights || ''
+      description: topic.value.description,
+      keyInsights: topic.value.keyInsights
     })
-  } catch (e) { console.error(e) }
+
+    const qRes = await axios.get(`/api/questions/by-topic/${topicId.value}`)
+    questions.value = qRes.data
+  } catch (err) { console.error(err) }
 }
 
 const openEditModal = () => {
@@ -385,19 +413,41 @@ const doDeleteTopic = async () => {
 }
 
 const toggleTheory = async () => {
-  if (isEditingTheory.value) {
-    if (saveTimeout) {
-      clearTimeout(saveTimeout)
-      await saveTheoryContent()
-    }
-  }
   isEditingTheory.value = !isEditingTheory.value
   editor.value.setEditable(isEditingTheory.value)
+  
+  if (!isEditingTheory.value) {
+    if (saveTimeout) clearTimeout(saveTimeout)
+    await saveTheoryContent()
+  }
 }
 
-const onSnippetCreated = async () => {
-  isCreatingSnippet.value = false
+const onMetadataSaved = async () => {
+  editingTopic.value = false
   await loadData()
+}
+
+const generateAiQuestions = async () => {
+  if (!topic.value.theoryContent) return
+  isGeneratingAiQuestions.value = true
+  try {
+     const res = await axios.post('/api/ai/generate-questions', { content: topic.value.theoryContent })
+     const generated = res.data
+     
+     // Save them one by one to the backend
+     for (const q of generated) {
+        await axios.post('/api/questions', {
+           topicId: topicId.value,
+           text: q.text,
+           answer: q.answer
+        })
+     }
+     await loadData()
+  } catch (e) {
+     console.error('Failed to generate AI questions:', e)
+  } finally {
+     isGeneratingAiQuestions.value = false
+  }
 }
 
 const downloadPdf = () => {
@@ -486,22 +536,6 @@ const handleSelection = () => {
   selection.show = true
   selection.x = rect.left + (rect.width / 2)
   selection.y = rect.top - 10
-}
-
-const addToHighlightsSelection = async () => {
-  const { from, to } = editor.value.state.selection
-  const text = editor.value.state.doc.textBetween(from, to, ' ')
-  if (!text.trim()) return
-
-  try {
-    await axios.post('/api/concepts', {
-      explanation: text.trim(),
-      title: 'Pinned Highlight',
-      topicId: topicId.value
-    })
-    editor.value.commands.setTextSelection({ from: to, to: to }) // Clear selection
-    await loadData()
-  } catch (e) { console.error(e) }
 }
 
 const handleFileUpload = async (e) => {
@@ -681,25 +715,6 @@ watch(topicId, loadData, { immediate: true })
   background: rgba(255,255,255,0.15);
 }
 
-.bubble-menu-manual .divider {
-  width: 1px;
-  height: 16px;
-  background: rgba(255,255,255,0.2);
-  margin: 0 4px;
-}
-
-.bubble-menu-manual .pin-btn {
-  color: var(--accent);
-  gap: 6px;
-  padding-right: 12px;
-}
-.bubble-menu-manual .pin-btn:hover {
-  background: var(--accent-subtle);
-}
-
-.bubble-menu-manual .pin-btn:hover {
-  background: var(--accent-subtle);
-}
 
 /* Slash Menu Styles */
 .slash-menu {
@@ -792,13 +807,33 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .sidebar-header {
-  padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  padding: 16px 20px; border-bottom: 1px solid var(--border); 
+  display: flex; align-items: center; justify-content: space-between;
 }
-.sidebar-header h3 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; color: var(--text-muted); }
-.sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px; }
-.sidebar-empty { font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 20px; line-height: 1.6; }
+.sidebar-header h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin: 0; color: var(--text-muted); }
 
-/* Tabs others */
+.sidebar-scroll { flex: 1; overflow-y: auto; }
+.snippets-editor-container { padding: 24px; }
+
+.snippets-editor-container :deep(.ProseMirror) {
+  outline: none;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  min-height: 500px;
+}
+
+.snippets-editor-container :deep(.ProseMirror p) { margin-bottom: 12px; }
+.snippets-editor-container :deep(.ProseMirror h1) { font-size: 20px; margin: 24px 0 12px; color: var(--text-primary); }
+.snippets-editor-container :deep(.ProseMirror h2) { font-size: 17px; margin: 20px 0 10px; color: var(--text-primary); }
+.snippets-editor-container :deep(.ProseMirror ul) { padding-left: 20px; margin-bottom: 12px; }
+
+.snippets-editor-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder); float: left; color: #adb5bd; pointer-events: none; height: 0;
+}
+
+.status-indicator.sm { font-size: 10px; font-weight: 700; opacity: 0.6; }
+
 .questions-tab { width: 100%; max-width: 900px; }
 .tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
 

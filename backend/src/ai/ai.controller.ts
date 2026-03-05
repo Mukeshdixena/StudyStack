@@ -10,4 +10,10 @@ export class AiController {
         const insight = await this.aiService.extractForgettablePoints(body.title, body.content);
         return { insight };
     }
+
+    @Post('generate-questions')
+    async generateQuestions(@Body() body: { content: string }) {
+        const questions = await this.aiService.generateQuestions(body.content);
+        return questions;
+    }
 }
