@@ -11,12 +11,6 @@ export class AiController {
         return { insight };
     }
 
-    @Post('generate-questions')
-    async generateQuestions(@Body() body: { content: string }) {
-        const questions = await this.aiService.generateQuestions(body.content);
-        return questions;
-    }
-
     @Post('refine-question')
     async refineQuestion(@Body() body: { rawInput: string }) {
         return this.aiService.refineQuestion(body.rawInput);

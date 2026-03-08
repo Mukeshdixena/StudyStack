@@ -114,13 +114,7 @@
         <div v-if="activeTab === 'questions'" class="questions-tab">
            <div class="tab-header">
               <h2>Practice Questions</h2>
-              <div class="flex gap-2">
-                 <button class="btn-ghost-sm" @click="generateAiQuestions" :disabled="isGeneratingAiQuestions || !topic.theoryContent">
-                    <Sparkles :size="14" class="text-accent" />
-                    {{ isGeneratingAiQuestions ? 'AI Generating...' : 'Generate via AI' }}
-                 </button>
-                 <button class="btn-primary-sm" @click="showAddQuestion = true"><Plus :size="14" /> Add Question</button>
-              </div>
+                  <button class="btn-primary-sm" @click="showAddQuestion = true"><Plus :size="14" /> Add Question</button>
            </div>
            <div class="questions-grid">
               <QuestionCard v-for="q in questions" :key="q._id" :question="q" @deleted="loadData" @updated="loadData" />
@@ -208,20 +202,61 @@
       <div v-if="showSidebar" class="sidebar-resizer" @mousedown="startResizing"></div>
 
       <!-- ═══ RIGHT SIDEBAR (The Golden Bits) ═══ -->
-      <aside v-if="showSidebar" class="important-sidebar" :style="{ width: sidebarWidth + 'px' }">
+      <aside v-if="showSidebar" class="important-sidebar" :class="{ 'is-editing': isEditingSnippets }" :style="{ width: sidebarWidth + 'px' }">
         <div class="sidebar-header">
           <div class="flex items-center gap-2">
             <Zap :size="14" class="text-accent" />
             <h3>Important Snippets</h3>
           </div>
-          <div class="status-indicator sm" :class="{ saving: snippetSavingStatus === 'saving' }">
-            <span v-if="snippetSavingStatus === 'saving'">Saving...</span>
-            <span v-else-if="snippetSavingStatus === 'saved'" class="text-success"><Check :size="10" /></span>
+          <div class="sidebar-header-actions">
+            <div class="status-indicator sm" :class="{ saving: snippetSavingStatus === 'saving' }">
+              <span v-if="snippetSavingStatus === 'saving'">Saving...</span>
+              <span v-else-if="snippetSavingStatus === 'saved'" class="text-success"><Check :size="10" /></span>
+            </div>
+            <button class="btn-minimal snippet-edit-btn" @click="toggleSnippets">
+              <Edit3 v-if="!isEditingSnippets" :size="13" />
+              <Check v-else :size="13" />
+              {{ isEditingSnippets ? 'Done' : 'Edit Snippets' }}
+            </button>
           </div>
         </div>
-        <div class="sidebar-scroll">
+        <div class="sidebar-scroll" style="position:relative">
           <div class="snippets-editor-container">
             <editor-content :editor="snippetsEditor" />
+
+            <!-- Snippets Bubble Menu -->
+            <div v-if="snippetSelection.show" class="bubble-menu-manual" :style="{ top: snippetSelection.y + 'px', left: snippetSelection.x + 'px' }">
+              <button @click="snippetsEditor.chain().focus().toggleBold().run()" :class="{ 'is-active': snippetsEditor.isActive('bold') }">
+                <span style="font-weight:900">B</span>
+              </button>
+              <button @click="snippetsEditor.chain().focus().toggleItalic().run()" :class="{ 'is-active': snippetsEditor.isActive('italic') }">
+                <span style="font-style:italic">I</span>
+              </button>
+              <button @click="snippetsEditor.chain().focus().toggleCode().run()" :class="{ 'is-active': snippetsEditor.isActive('code') }">
+                <code>&lt;/&gt;</code>
+              </button>
+            </div>
+
+            <!-- Snippets Slash Command Menu -->
+            <div v-if="snippetsSlashMenu.show" class="slash-menu snippets-slash-menu" :style="{ top: snippetsSlashMenu.y + 'px', left: snippetsSlashMenu.x + 'px' }">
+              <div class="slash-label">Basic Blocks</div>
+              <button class="slash-item" @click="applySnippetCommand('h1')">
+                <div class="slash-icon"><Type :size="16" /></div>
+                <div class="slash-text"><span>Heading 1</span><small>Big section title</small></div>
+              </button>
+              <button class="slash-item" @click="applySnippetCommand('h2')">
+                <div class="slash-icon"><Type :size="14" /></div>
+                <div class="slash-text"><span>Heading 2</span><small>Medium section title</small></div>
+              </button>
+              <button class="slash-item" @click="applySnippetCommand('bullet')">
+                <div class="slash-icon"><List :size="14" /></div>
+                <div class="slash-text"><span>Bullet List</span><small>Create a simple list</small></div>
+              </button>
+              <button class="slash-item" @click="applySnippetCommand('code')">
+                <div class="slash-icon"><Code :size="14" /></div>
+                <div class="slash-text"><span>Code Block</span><small>Capture code snippets</small></div>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -285,7 +320,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, RouterLink, useRouter } from 'vue-router'
-import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, Code, ExternalLink, Download, Sparkles } from 'lucide-vue-next'
+import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, Code, ExternalLink, Download } from 'lucide-vue-next'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -304,8 +339,8 @@ const questions = ref([])
 const activeTab = ref('theory')
 const fileInput = ref(null)
 const isEditingTheory = ref(false)
+const isEditingSnippets = ref(false)
 const showAddQuestion = ref(false)
-const isGeneratingAiQuestions = ref(false)
 const showSidebar = ref(true)
 const sidebarWidth = ref(360)
 const isResizing = ref(false)
@@ -327,6 +362,8 @@ let snippetSaveTimeout = null
 const editForm = reactive({ name: '', description: '', keyInsights: '' })
 const selection = reactive({ show: false, x: 0, y: 0, text: '' })
 const slashMenu = reactive({ show: false, x: 0, y: 0, query: '' })
+const snippetSelection = reactive({ show: false, x: 0, y: 0 })
+const snippetsSlashMenu = reactive({ show: false, x: 0, y: 0 })
 
 const wordCount = computed(() => {
   if (!editor.value) return 0
@@ -350,19 +387,39 @@ const editor = useEditor({
     debouncedSave()
   },
   onSelectionUpdate: () => handleSelection(),
-  onFocus: () => { selection.show = false },
-  onBlur:  () => { slashMenu.show = false }
+  onFocus: () => { 
+    selection.show = false
+    slashMenu.show = false
+  },
+  onBlur:  () => { 
+    setTimeout(() => {
+      slashMenu.show = false
+      selection.show = false
+    }, 200)
+  }
 })
 
 const snippetsEditor = useEditor({
-  editable: true,
+  editable: false,
   content: '',
   extensions: [
     StarterKit,
-    Placeholder.configure({ placeholder: 'Capture key insights here...' }),
+    Placeholder.configure({ placeholder: 'Capture key insights... (Click Edit, then type / for commands)' }),
   ],
-  onUpdate: () => {
+  onUpdate: ({ editor: ed }) => {
+    handleSnippetsSlashCommand(ed)
     debouncedSnippetsSave()
+  },
+  onSelectionUpdate: () => handleSnippetSelection(),
+  onFocus: () => {
+    snippetSelection.show = false
+    snippetsSlashMenu.show = false
+  },
+  onBlur: () => { 
+    setTimeout(() => {
+      snippetsSlashMenu.show = false
+      snippetSelection.show = false
+    }, 200)
   }
 })
 
@@ -483,33 +540,25 @@ const toggleTheory = async () => {
   }
 }
 
+const toggleSnippets = async () => {
+  isEditingSnippets.value = !isEditingSnippets.value
+  snippetsEditor.value.setEditable(isEditingSnippets.value)
+  
+  if (!isEditingSnippets.value) {
+    snippetsSlashMenu.show = false
+    if (snippetSaveTimeout) clearTimeout(snippetSaveTimeout)
+    await saveSnippetsContent()
+  } else {
+    // Focus the editor when entering edit mode
+    nextTick(() => snippetsEditor.value.commands.focus('end'))
+  }
+}
+
 const onMetadataSaved = async () => {
   editingTopic.value = false
   await loadData()
 }
 
-const generateAiQuestions = async () => {
-  if (!topic.value.theoryContent) return
-  isGeneratingAiQuestions.value = true
-  try {
-     const res = await axios.post('/api/ai/generate-questions', { content: topic.value.theoryContent })
-     const generated = res.data
-     
-     // Save them one by one to the backend
-     for (const q of generated) {
-        await axios.post('/api/questions', {
-           topicId: topicId.value,
-           text: q.text,
-           answer: q.answer
-        })
-     }
-     await loadData()
-  } catch (e) {
-     console.error('Failed to generate AI questions:', e)
-  } finally {
-     isGeneratingAiQuestions.value = false
-  }
-}
 
 const openMaterial = (m) => {
   if (m.url) window.open(m.url, '_blank')
@@ -623,6 +672,56 @@ const applyCommand = (cmd) => {
   if (cmd === 'code') ed.chain().focus().toggleCodeBlock().run()
   
   slashMenu.show = false
+}
+
+// ═══ Snippets Slash + Selection ═══
+const handleSnippetsSlashCommand = (ed) => {
+  const { from } = ed.state.selection
+  const text = ed.state.doc.textBetween(Math.max(0, from - 1), from)
+  
+  if (text === '/') {
+    const coords = ed.view.coordsAtPos(from)
+    const container = document.querySelector('.snippets-editor-container')
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    snippetsSlashMenu.show = true
+    snippetsSlashMenu.x = coords.left - rect.left
+    snippetsSlashMenu.y = coords.top - rect.top + container.scrollTop + 28
+  } else {
+    snippetsSlashMenu.show = false
+  }
+}
+
+const applySnippetCommand = (cmd) => {
+  const ed = snippetsEditor.value
+  const { from } = ed.state.selection
+  ed.chain().focus().deleteRange({ from: from - 1, to: from }).run()
+  
+  if (cmd === 'h1') ed.chain().focus().toggleHeading({ level: 1 }).run()
+  if (cmd === 'h2') ed.chain().focus().toggleHeading({ level: 2 }).run()
+  if (cmd === 'bullet') ed.chain().focus().toggleBulletList().run()
+  if (cmd === 'code') ed.chain().focus().toggleCodeBlock().run()
+  
+  snippetsSlashMenu.show = false
+}
+
+const handleSnippetSelection = () => {
+  if (!snippetsEditor.value) return
+  const { from, to } = snippetsEditor.value.state.selection
+  if (from === to) { snippetSelection.show = false; return }
+
+  const selectionObj = window.getSelection()
+  if (!selectionObj || selectionObj.isCollapsed) { snippetSelection.show = false; return }
+
+  const range = selectionObj.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+  const container = document.querySelector('.snippets-editor-container')
+  if (!container) return
+  const cRect = container.getBoundingClientRect()
+
+  snippetSelection.show = true
+  snippetSelection.x = rect.left - cRect.left + rect.width / 2
+  snippetSelection.y = rect.top - cRect.top - 10
 }
 
 const handleSelection = () => {
@@ -900,7 +999,12 @@ watch(topicId, loadData, { immediate: true })
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: width 0.05s linear;
+  transition: width 0.05s linear, background 0.3s ease;
+}
+
+.important-sidebar.is-editing {
+  background: #fff;
+  box-shadow: -10px 0 30px rgba(0,0,0,0.03);
 }
 
 .sidebar-resizer {
@@ -916,13 +1020,35 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .sidebar-header {
-  padding: 16px 20px; border-bottom: 1px solid var(--border); 
+  padding: 12px 16px; border-bottom: 1px solid var(--border); 
   display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
 }
 .sidebar-header h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin: 0; color: var(--text-muted); }
+.sidebar-header-actions { display: flex; align-items: center; gap: 10px; }
+.snippet-edit-btn {
+  font-size: 11.5px; font-weight: 700; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-subtle); color: var(--text-muted);
+  transition: all 0.2s;
+}
+.snippet-edit-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+
+.snippets-slash-menu {
+  position: absolute;
+  z-index: 200;
+}
 
 .sidebar-scroll { flex: 1; overflow-y: auto; }
-.snippets-editor-container { padding: 24px; }
+.snippets-editor-container { 
+  padding: 24px; 
+  position: relative;
+  min-height: 100%;
+}
+
+.important-sidebar.is-editing .snippets-editor-container {
+  background: #fff;
+}
 
 .snippets-editor-container :deep(.ProseMirror) {
   outline: none;
@@ -933,9 +1059,17 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .snippets-editor-container :deep(.ProseMirror p) { margin-bottom: 12px; }
-.snippets-editor-container :deep(.ProseMirror h1) { font-size: 20px; margin: 24px 0 12px; color: var(--text-primary); }
-.snippets-editor-container :deep(.ProseMirror h2) { font-size: 17px; margin: 20px 0 10px; color: var(--text-primary); }
+.snippets-editor-container :deep(.ProseMirror h1) { font-size: 20px; font-weight: 700; margin: 24px 0 12px; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px; }
+.snippets-editor-container :deep(.ProseMirror h2) { font-size: 16px; font-weight: 700; margin: 20px 0 10px; color: var(--text-primary); }
 .snippets-editor-container :deep(.ProseMirror ul) { padding-left: 20px; margin-bottom: 12px; }
+.snippets-editor-container :deep(.ProseMirror li) { margin-bottom: 4px; }
+.snippets-editor-container :deep(.ProseMirror pre) { 
+  background: var(--bg-subtle); padding: 12px; border-radius: 6px; margin: 12px 0; overflow-x: auto; 
+  font-size: 12px; border: 1px solid var(--border);
+}
+.snippets-editor-container :deep(.ProseMirror code) {
+  background: var(--accent-subtle); color: var(--accent); border-radius: 3px; padding: 0.1em 0.3em; font-size: 90%;
+}
 
 .snippets-editor-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder); float: left; color: #adb5bd; pointer-events: none; height: 0;
