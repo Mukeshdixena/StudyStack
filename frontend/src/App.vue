@@ -16,6 +16,9 @@
         <RouterLink to="/" class="sidebar-item nav-item" :class="{ active: route.path === '/' }">
           <LayoutGrid :size="15" /> All Topics
         </RouterLink>
+        <RouterLink to="/snippets" class="sidebar-item nav-item" :class="{ active: route.path === '/snippets' }">
+          <Zap :size="15" /> All Snippets
+        </RouterLink>
       </nav>
 
       <!-- Topics list -->
@@ -123,7 +126,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle, File, Upload, StickyNote } from 'lucide-vue-next'
+import { BookOpen, LayoutGrid, AlertCircle, Plus, X, Sun, Moon, FolderPlus, Trash2, AlertTriangle, File, Upload, StickyNote, Zap } from 'lucide-vue-next'
 import TopicTree from './components/TopicTree.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
 import axios from 'axios'

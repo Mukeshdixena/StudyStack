@@ -65,7 +65,7 @@
 
             <!-- Editor Toolbar (Shown only when editing) -->
             <!-- Slash Command Menu -->
-            <div v-if="slashMenu.show" class="slash-menu" :style="{ top: slashMenu.y + 'px', left: slashMenu.x + 'px' }">
+            <div v-if="slashMenu.show" class="slash-menu" :style="{ top: slashMenu.y + 'px', left: slashMenu.x + 'px' }" @mousedown.prevent>
               <div class="slash-label">Basic Blocks</div>
               <button class="slash-item" @click="applyCommand('h1')">
                 <div class="slash-icon"><Type :size="16" /></div>
@@ -85,7 +85,14 @@
                 <div class="slash-icon"><List :size="14" /></div>
                 <div class="slash-text">
                   <span>Bullet List</span>
-                  <small>Create a simple list</small>
+                  <small>Disc bullet points</small>
+                </div>
+              </button>
+              <button class="slash-item" @click="applyCommand('ordered')">
+                <div class="slash-icon"><ListOrdered :size="14" /></div>
+                <div class="slash-text">
+                  <span>Numbered List</span>
+                  <small>Ordered 1, 2, 3...</small>
                 </div>
               </button>
               <button class="slash-item" @click="applyCommand('code')">
@@ -225,20 +232,20 @@
             <editor-content :editor="snippetsEditor" />
 
             <!-- Snippets Bubble Menu -->
-            <div v-if="snippetSelection.show" class="bubble-menu-manual" :style="{ top: snippetSelection.y + 'px', left: snippetSelection.x + 'px' }">
-              <button @click="snippetsEditor.chain().focus().toggleBold().run()" :class="{ 'is-active': snippetsEditor.isActive('bold') }">
+            <div v-if="snippetSelection.show" class="bubble-menu-manual" :style="{ top: snippetSelection.y + 'px', left: snippetSelection.x + 'px' }" @mousedown.prevent>
+              <button @mousedown.prevent="snippetsEditor.chain().focus().toggleBold().run()" :class="{ 'is-active': snippetsEditor.isActive('bold') }">
                 <span style="font-weight:900">B</span>
               </button>
-              <button @click="snippetsEditor.chain().focus().toggleItalic().run()" :class="{ 'is-active': snippetsEditor.isActive('italic') }">
+              <button @mousedown.prevent="snippetsEditor.chain().focus().toggleItalic().run()" :class="{ 'is-active': snippetsEditor.isActive('italic') }">
                 <span style="font-style:italic">I</span>
               </button>
-              <button @click="snippetsEditor.chain().focus().toggleCode().run()" :class="{ 'is-active': snippetsEditor.isActive('code') }">
+              <button @mousedown.prevent="snippetsEditor.chain().focus().toggleCode().run()" :class="{ 'is-active': snippetsEditor.isActive('code') }">
                 <code>&lt;/&gt;</code>
               </button>
             </div>
 
             <!-- Snippets Slash Command Menu -->
-            <div v-if="snippetsSlashMenu.show" class="slash-menu snippets-slash-menu" :style="{ top: snippetsSlashMenu.y + 'px', left: snippetsSlashMenu.x + 'px' }">
+            <div v-if="snippetsSlashMenu.show" class="slash-menu snippets-slash-menu" :style="{ top: snippetsSlashMenu.y + 'px', left: snippetsSlashMenu.x + 'px' }" @mousedown.prevent>
               <div class="slash-label">Basic Blocks</div>
               <button class="slash-item" @click="applySnippetCommand('h1')">
                 <div class="slash-icon"><Type :size="16" /></div>
@@ -250,7 +257,11 @@
               </button>
               <button class="slash-item" @click="applySnippetCommand('bullet')">
                 <div class="slash-icon"><List :size="14" /></div>
-                <div class="slash-text"><span>Bullet List</span><small>Create a simple list</small></div>
+                <div class="slash-text"><span>Bullet List</span><small>Disc bullet points</small></div>
+              </button>
+              <button class="slash-item" @click="applySnippetCommand('ordered')">
+                <div class="slash-icon"><ListOrdered :size="14" /></div>
+                <div class="slash-text"><span>Numbered List</span><small>Ordered 1, 2, 3...</small></div>
               </button>
               <button class="slash-item" @click="applySnippetCommand('code')">
                 <div class="slash-icon"><Code :size="14" /></div>
@@ -320,7 +331,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, RouterLink, useRouter } from 'vue-router'
-import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, Code, ExternalLink, Download } from 'lucide-vue-next'
+import { ChevronLeft, Zap, Edit3, Check, BookOpen, Plus, Upload, X, MoreVertical, Trash2, Type, List, ListOrdered, Code, ExternalLink, Download, LayoutGrid, Globe } from 'lucide-vue-next'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -389,13 +400,12 @@ const editor = useEditor({
   onSelectionUpdate: () => handleSelection(),
   onFocus: () => { 
     selection.show = false
-    slashMenu.show = false
   },
-  onBlur:  () => { 
+  onBlur: () => { 
     setTimeout(() => {
       slashMenu.show = false
       selection.show = false
-    }, 200)
+    }, 300)
   }
 })
 
@@ -413,13 +423,12 @@ const snippetsEditor = useEditor({
   onSelectionUpdate: () => handleSnippetSelection(),
   onFocus: () => {
     snippetSelection.show = false
-    snippetsSlashMenu.show = false
   },
   onBlur: () => { 
     setTimeout(() => {
       snippetsSlashMenu.show = false
       snippetSelection.show = false
-    }, 200)
+    }, 300)
   }
 })
 
@@ -650,12 +659,18 @@ const handleSlashCommand = (ed) => {
   const text = ed.state.doc.textBetween(Math.max(0, from - 1), from)
   
   if (text === '/') {
-    const { from } = ed.state.selection
     const coords = ed.view.coordsAtPos(from)
-    const container = document.querySelector('.main-note-area')
+    // .slash-menu is position:absolute inside .theory-wrapper (position:relative)
+    // so coords must be relative to .theory-wrapper, NOT .main-note-area
+    const wrapper = document.querySelector('.theory-wrapper')
+    if (!wrapper) return
+    const wRect = wrapper.getBoundingClientRect()
+    // main-note-area is the scroll container; add its scrollTop for correct Y inside wrapper
+    const scrollEl = document.querySelector('.main-note-area')
+    const scrollTop = scrollEl ? scrollEl.scrollTop : 0
     slashMenu.show = true
-    slashMenu.x = coords.left - container.getBoundingClientRect().left + 40
-    slashMenu.y = coords.top - container.getBoundingClientRect().top + container.scrollTop + 30
+    slashMenu.x = coords.left - wRect.left
+    slashMenu.y = coords.bottom - wRect.top + scrollTop + 6
   } else {
     slashMenu.show = false
   }
@@ -669,6 +684,7 @@ const applyCommand = (cmd) => {
   if (cmd === 'h1') ed.chain().focus().toggleHeading({ level: 1 }).run()
   if (cmd === 'h2') ed.chain().focus().toggleHeading({ level: 2 }).run()
   if (cmd === 'bullet') ed.chain().focus().toggleBulletList().run()
+  if (cmd === 'ordered') ed.chain().focus().toggleOrderedList().run()
   if (cmd === 'code') ed.chain().focus().toggleCodeBlock().run()
   
   slashMenu.show = false
@@ -684,9 +700,12 @@ const handleSnippetsSlashCommand = (ed) => {
     const container = document.querySelector('.snippets-editor-container')
     if (!container) return
     const rect = container.getBoundingClientRect()
+    // Use .sidebar-scroll scrollTop since that's the element that actually scrolls
+    const sidebarScroll = document.querySelector('.sidebar-scroll')
+    const scrollTop = sidebarScroll ? sidebarScroll.scrollTop : 0
     snippetsSlashMenu.show = true
     snippetsSlashMenu.x = coords.left - rect.left
-    snippetsSlashMenu.y = coords.top - rect.top + container.scrollTop + 28
+    snippetsSlashMenu.y = coords.top - rect.top + scrollTop + 28
   } else {
     snippetsSlashMenu.show = false
   }
@@ -700,6 +719,7 @@ const applySnippetCommand = (cmd) => {
   if (cmd === 'h1') ed.chain().focus().toggleHeading({ level: 1 }).run()
   if (cmd === 'h2') ed.chain().focus().toggleHeading({ level: 2 }).run()
   if (cmd === 'bullet') ed.chain().focus().toggleBulletList().run()
+  if (cmd === 'ordered') ed.chain().focus().toggleOrderedList().run()
   if (cmd === 'code') ed.chain().focus().toggleCodeBlock().run()
   
   snippetsSlashMenu.show = false
@@ -715,13 +735,11 @@ const handleSnippetSelection = () => {
 
   const range = selectionObj.getRangeAt(0)
   const rect = range.getBoundingClientRect()
-  const container = document.querySelector('.snippets-editor-container')
-  if (!container) return
-  const cRect = container.getBoundingClientRect()
 
+  // bubble-menu-manual is position:fixed, so coords must be raw viewport values
   snippetSelection.show = true
-  snippetSelection.x = rect.left - cRect.left + rect.width / 2
-  snippetSelection.y = rect.top - cRect.top - 10
+  snippetSelection.x = rect.left + rect.width / 2
+  snippetSelection.y = rect.top - 8
 }
 
 const handleSelection = () => {
@@ -833,7 +851,7 @@ watch(topicId, loadData, { immediate: true })
   padding: 40px 60px;
   display: flex;
   justify-content: center;
-  background: #fff;
+  background: var(--surface);
 }
 
 .theory-wrapper { width: 100%; max-width: 800px; position: relative; }
@@ -843,35 +861,36 @@ watch(topicId, loadData, { immediate: true })
   outline: none;
   min-height: 80vh;
   line-height: 1.8;
-  color: #37352f;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
 .tiptap-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: var(--text-muted);
   pointer-events: none;
   height: 0;
 }
 
-.tiptap-container :deep(.ProseMirror h1) { font-size: 34px; font-weight: 700; margin: 32px 0 16px; color: #000; }
-.tiptap-container :deep(.ProseMirror h2) { font-size: 26px; font-weight: 700; margin: 24px 0 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+.tiptap-container :deep(.ProseMirror h1) { font-size: 34px; font-weight: 700; margin: 32px 0 16px; color: var(--text-primary); }
+.tiptap-container :deep(.ProseMirror h2) { font-size: 26px; font-weight: 700; margin: 24px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .tiptap-container :deep(.ProseMirror h3) { font-size: 20px; font-weight: 700; margin: 20px 0 10px; }
 .tiptap-container :deep(.ProseMirror p) { margin-bottom: 14px; }
-.tiptap-container :deep(.ProseMirror ul), .tiptap-container :deep(.ProseMirror ol) { padding-left: 24px; margin-bottom: 14px; }
-.tiptap-container :deep(.ProseMirror li) { margin-bottom: 4px; }
+.tiptap-container :deep(.ProseMirror ul) { padding-left: 24px; margin-bottom: 14px; list-style-type: disc; }
+.tiptap-container :deep(.ProseMirror ol) { padding-left: 24px; margin-bottom: 14px; list-style-type: decimal; }
+.tiptap-container :deep(.ProseMirror li) { margin-bottom: 4px; display: list-item; }
 .tiptap-container :deep(.ProseMirror pre) { 
-  background: #f7f6f3; padding: 16px; border-radius: 8px; margin: 20px 0; overflow-x: auto; 
-  font-family: inherit; font-size: 14px;
+  background: var(--bg-subtle); padding: 16px; border-radius: 8px; margin: 20px 0; overflow-x: auto; 
+  font-family: inherit; font-size: 14px; border: 1px solid var(--border);
 }
 .tiptap-container :deep(.ProseMirror code) {
-  background: rgba(135,131,120,0.15); color: #eb5757; border-radius: 3px; padding: 0.2em 0.4em; font-size: 85%;
+  background: var(--accent-subtle); color: var(--accent); border-radius: 3px; padding: 0.2em 0.4em; font-size: 85%;
 }
 
 .editor-footer-info {
   display: flex; align-items: center; gap: 8px; margin-top: 40px; 
-  padding-top: 20px; border-top: 1px solid #f0f0f0;
+  padding-top: 20px; border-top: 1px solid var(--border);
   font-size: 12px; color: var(--text-muted); opacity: 0.6;
 }
 .dot { font-size: 8px; }
@@ -1003,8 +1022,8 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .important-sidebar.is-editing {
-  background: #fff;
-  box-shadow: -10px 0 30px rgba(0,0,0,0.03);
+  background: var(--surface);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.06);
 }
 
 .sidebar-resizer {
@@ -1047,7 +1066,7 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .important-sidebar.is-editing .snippets-editor-container {
-  background: #fff;
+  background: var(--surface);
 }
 
 .snippets-editor-container :deep(.ProseMirror) {
@@ -1061,8 +1080,9 @@ watch(topicId, loadData, { immediate: true })
 .snippets-editor-container :deep(.ProseMirror p) { margin-bottom: 12px; }
 .snippets-editor-container :deep(.ProseMirror h1) { font-size: 20px; font-weight: 700; margin: 24px 0 12px; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px; }
 .snippets-editor-container :deep(.ProseMirror h2) { font-size: 16px; font-weight: 700; margin: 20px 0 10px; color: var(--text-primary); }
-.snippets-editor-container :deep(.ProseMirror ul) { padding-left: 20px; margin-bottom: 12px; }
-.snippets-editor-container :deep(.ProseMirror li) { margin-bottom: 4px; }
+.snippets-editor-container :deep(.ProseMirror ul) { padding-left: 20px; margin-bottom: 12px; list-style-type: disc; }
+.snippets-editor-container :deep(.ProseMirror ol) { padding-left: 20px; margin-bottom: 12px; list-style-type: decimal; }
+.snippets-editor-container :deep(.ProseMirror li) { margin-bottom: 4px; display: list-item; }
 .snippets-editor-container :deep(.ProseMirror pre) { 
   background: var(--bg-subtle); padding: 12px; border-radius: 6px; margin: 12px 0; overflow-x: auto; 
   font-size: 12px; border: 1px solid var(--border);
@@ -1072,7 +1092,7 @@ watch(topicId, loadData, { immediate: true })
 }
 
 .snippets-editor-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
-  content: attr(data-placeholder); float: left; color: #adb5bd; pointer-events: none; height: 0;
+  content: attr(data-placeholder); float: left; color: var(--text-muted); pointer-events: none; height: 0;
 }
 
 .status-indicator.sm { font-size: 10px; font-weight: 700; opacity: 0.6; }
@@ -1111,10 +1131,10 @@ watch(topicId, loadData, { immediate: true })
 
 .viewer-toolbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
 .m-current-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.pdf-iframe-full { width: 100%; height: calc(100vh - 320px); min-height: 600px; border: none; background: #fff; }
+.pdf-iframe-full { width: 100%; height: calc(100vh - 320px); min-height: 600px; border: none; background: var(--surface); }
 
 .material-viewer-full { 
-  flex: 1; min-height: 600px; background: #fff; border: 1px solid var(--border); 
+  flex: 1; min-height: 600px; background: var(--surface); border: 1px solid var(--border); 
   border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm);
   display: flex; flex-direction: column;
 }
@@ -1129,7 +1149,7 @@ watch(topicId, loadData, { immediate: true })
 .pdf-empty:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); } 
 
 .pdf-viewer { 
-  flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #fff;
+  flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
 }
 
 .modal-overlay {
@@ -1177,8 +1197,8 @@ watch(topicId, loadData, { immediate: true })
   display: flex; align-items: center; gap: 8px; color: var(--text-secondary);
 }
 .dropdown-menu button:hover { background: var(--bg-subtle); color: var(--text-primary); }
-.dropdown-menu button.danger { color: #ef4444; }
-.dropdown-menu button.danger:hover { background: #fee2e2; }
+.dropdown-menu button.danger { color: var(--danger); }
+.dropdown-menu button.danger:hover { background: rgba(220,38,38,0.08); }
 
 .btn-icon-ghost {
   background: none; border: none; padding: 8px; border-radius: 8px;
